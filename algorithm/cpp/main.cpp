@@ -5,6 +5,7 @@
 #include <fstream>
 #include <string>
 #include <queue>
+
 using namespace std;
 
 string dataPath = "../data";
@@ -13,215 +14,147 @@ string portFile = "port.txt";
 string resultFile = "result.txt";
 
 class Flow {
-private:
+public:
 	int id;
 	int bandwidth;
 	int startTime;
 	int beginTime;
 	int endTime;
 	int sendTime;
-	double compose;
 	double speed;
-public:
-	Flow(int id = 0, int bandwidth = 0, int startTime = 0, int sendTime = 0);
-	int getId() const;
-	int getBandwidth() const;
-	int getStartTime() const;
-	int getBeginTime() const;
-	int getSendTime() const;
-	int getEndTime() const;
-	void setBeginTime(int beginTime);
-	void setEndTime(int beginTime);
-	bool operator < (const Flow& other) const;
-	bool operator > (const Flow& other) const;
-	bool operator == (const Flow& other) const;
-	static bool compareAsStart(Flow first, Flow second);
-	static bool compareAsSend(Flow first, Flow second);
-	static bool compareAsBandwidth(Flow first, Flow second);
-	static bool compareAsCompose(Flow first, Flow second);
-	static bool compareAsSpeed(Flow first, Flow second);
-	friend ostream& operator << (ostream& out, Flow& flow);
-};
 
-Flow::Flow(int id, int bandwidth, int startTime, int sendTime) {
-	this->id = id;
-	this->bandwidth = bandwidth;
-	this->startTime = startTime;
-	this->sendTime = sendTime;
-	this->beginTime = 0;
-	if (sendTime != 0) {
-		this->speed = (double) (bandwidth) / (double) (sendTime);
-	} else {
-		this->speed = 0.0;
+	Flow(int id = 0, int bandwidth = 0, int startTime = 0, int sendTime = 0) {
+		this->id = id;
+		this->bandwidth = bandwidth;
+		this->startTime = startTime;
+		this->sendTime = sendTime;
+		this->beginTime = 0;
+		if (sendTime != 0) {
+			this->speed = (double) (bandwidth) / (double) (sendTime);
+		} else {
+			this->speed = 0.0;
+		}
 	}
-	this->compose = 0.0;
-}
 
-int Flow::getId() const {
-	return id;
-}
+	void setBeginTime(int beginTime) {
+		this->beginTime = beginTime;
+	}
 
-int Flow::getBandwidth() const {
-	return bandwidth;
-}
+	void setEndTime(int beginTime) {
+		this->endTime = beginTime + sendTime;
+	}
 
-int Flow::getStartTime() const {
-	return startTime;
-}
+	bool operator<(const Flow &other) const {
+		return this->endTime < other.endTime;
+	}
 
-int Flow::getBeginTime() const {
-	return beginTime;
-}
+	bool operator>(const Flow &other) const {
+		return this->endTime > other.endTime;
+	}
 
-int Flow::getSendTime() const {
-	return sendTime;
-}
+	bool operator==(const Flow &other) const {
+		return this->endTime == other.endTime;
+	}
 
-int Flow::getEndTime() const {
-	return endTime;
-}
-
-void Flow::setBeginTime(int beginTime) {
-	this->beginTime = beginTime;
-}
-
-void Flow::setEndTime(int beginTime) {
-	this->endTime = beginTime + sendTime;
-}
-
-bool Flow::operator<(const Flow &other) const {
-	return this->endTime < other.endTime;
-}
-
-bool Flow::operator>(const Flow &other) const {
-	return this->endTime > other.endTime;
-}
-
-bool Flow::operator==(const Flow &other) const {
-	return this->endTime == other.endTime;
-}
-
-bool Flow::compareAsStart(Flow first, Flow second) {
-	return first.startTime < second.startTime;
-}
-
-bool Flow::compareAsSend(Flow first, Flow second) {
-	return first.sendTime < second.sendTime;
-}
-
-bool Flow::compareAsBandwidth(Flow first, Flow second) {
-	return first.bandwidth < second.bandwidth;
-}
-
-bool Flow::compareAsCompose(Flow first, Flow second) {
-	if (first.startTime != second.startTime) {
+	static bool compareAsStart(Flow &first, Flow &second) {
 		return first.startTime < second.startTime;
-	} else if (first.sendTime != second.sendTime) {
+	}
+
+	static bool compareAsSend(Flow &first, Flow &second) {
 		return first.sendTime < second.sendTime;
-	} else {
+	}
+
+	static bool compareAsBandwidth(Flow &first, Flow &second) {
 		return first.bandwidth < second.bandwidth;
 	}
-}
 
-bool Flow::compareAsSpeed(Flow first, Flow second) {
-	if (first.startTime != second.startTime) {
-		return first.startTime < second.startTime;
-	} else {
-		return first.speed > second.speed;
+	static bool compareAsSSB(Flow &first, Flow &second) {
+		if (first.startTime != second.startTime) {
+			return first.startTime < second.startTime;
+		} else if (first.bandwidth != second.bandwidth) {
+			return first.bandwidth < second.bandwidth;
+		} else {
+			return first.sendTime < second.sendTime;
+		}
 	}
-}
 
-ostream& operator << (ostream& out, Flow& flow) {
-	out << flow.id << "," << flow.bandwidth << "," << flow.startTime << "," << flow.sendTime << "," << flow.speed;
-	return out;
-}
+	static bool compareAsSpeed(Flow &first, Flow &second) {
+		if (first.startTime != second.startTime) {
+			return first.startTime < second.startTime;
+		} else {
+			return first.speed > second.speed;
+		}
+	}
+
+	friend ostream &operator<<(ostream &out, Flow &flow) {
+		out << flow.id << "," << flow.bandwidth << "," << flow.startTime << "," << flow.sendTime << "," << flow.speed;
+		return out;
+	}
+};
 
 class FlowComparer {
 public:
-	bool operator()(Flow& first, Flow& second) {
-		return !Flow::compareAsCompose(first, second);
+	bool operator()(Flow &first, Flow &second) {
+		return !Flow::compareAsSpeed(first, second);
 	}
 };
 
 class Port {
-private:
+public:
 	int id;
 	int bandwidth;
 	int remainBandwidth;
-public:
-	Port(int id, int bandwidth);
-	bool modifyRemain(int bw);
-	int getId() const;
-	int getBandwidth() const;
-	int getRemain() const;
-	static bool compareAsBandwidth(Port first, Port second);
-	friend ostream& operator << (ostream& out, Port& port);
-};
 
-Port::Port(int id, int bandwidth) {
-	this->id = id;
-	this->bandwidth = bandwidth;
-	this->remainBandwidth = bandwidth;
-}
-
-bool Port::modifyRemain(int bw) {
-	if (bw > remainBandwidth) {
-		return false;
+	Port(int id, int bandwidth) {
+		this->id = id;
+		this->bandwidth = bandwidth;
+		this->remainBandwidth = bandwidth;
 	}
-	remainBandwidth -= bw;
-	return true;
-}
 
-int Port::getId() const {
-	return id;
-}
+	bool modifyRemain(int bw) {
+		if (bw > remainBandwidth) {
+			return false;
+		}
+		remainBandwidth -= bw;
+		return true;
+	}
 
-int Port::getBandwidth() const {
-	return bandwidth;
-}
+	static bool compareAsBandwidth(Port &first, Port &second) {
+		return first.bandwidth < second.bandwidth;
+	}
 
-int Port::getRemain() const {
-	return remainBandwidth;
-}
-
-bool Port::compareAsBandwidth(Port first, Port second) {
-	return first.bandwidth < second.bandwidth;
-}
-
-ostream& operator << (ostream& out, Port& port) {
-	out << port.id << "," << port.bandwidth;
-	return out;
-}
+	friend ostream &operator<<(ostream &out, Port &port) {
+		out << port.id << "," << port.bandwidth;
+		return out;
+	}
+};
 
 class PortComparer {
 public:
-	bool operator()(Port& first, Port& second) {
+	bool operator()(Port &first, Port &second) {
 		return !Port::compareAsBandwidth(first, second);
 	}
 };
 
 class Result {
-private:
+public:
 	int flowId;
 	int portId;
 	int startSendTime;
-public:
-	Result(int flowId = 0, int portId = 0, int startSendTime = 0);
-	friend ostream &operator << (ostream& out, Result& result);
+
+	Result(int flowId = 0, int portId = 0, int startSendTime = 0) {
+		this->flowId = flowId;
+		this->portId = portId;
+		this->startSendTime = startSendTime;
+	}
+
+	friend ostream &operator<<(ostream &out, Result &result) {
+		out << result.flowId << "," << result.portId << "," << result.startSendTime;
+		return out;
+	}
 };
 
-Result::Result(int flowId, int portId, int startSendTime) {
-	this->flowId = flowId;
-	this->portId = portId;
-	this->startSendTime = startSendTime;
-}
-
-ostream & operator << (ostream& out, Result& result) {
-	out << result.flowId << "," << result.portId << "," << result.startSendTime;
-	return out;
-}
-
-void split(std::string str, std::vector<std::string>& result) {
+void split(std::string str, std::vector<std::string> &result) {
 	char delimiter = ',';
 	size_t pos = str.find(delimiter);
 	str += delimiter;
@@ -232,7 +165,7 @@ void split(std::string str, std::vector<std::string>& result) {
 	}
 }
 
-int loadFlow(const string& filePath, priority_queue<Flow, vector<Flow>, FlowComparer>& flows) {
+int loadFlow(const string &filePath, priority_queue<Flow, vector<Flow>, FlowComparer> &flows) {
 	int total = 0;
 	fstream f(filePath.c_str());
 	if (!f.is_open()) {
@@ -249,17 +182,17 @@ int loadFlow(const string& filePath, priority_queue<Flow, vector<Flow>, FlowComp
 		for (int i = 0; i < 4; ++i) {
 			stream << tempString[i];
 			stream >> tempInt[i];
-            stream.clear();
+			stream.clear();
 		}
 		total += tempInt[1];
 		flows.emplace(tempInt[0], tempInt[1], tempInt[2], tempInt[3]);
-        tempString.clear();
+		tempString.clear();
 	}
 	f.close();
 	return total;
 }
 
-int loadPort(const string& filePath, priority_queue<Port, vector<Port>, PortComparer>& posts) {
+int loadPort(const string &filePath, priority_queue<Port, vector<Port>, PortComparer> &posts) {
 	int total = 0;
 	fstream f(filePath.c_str());
 	if (!f.is_open()) {
@@ -276,17 +209,17 @@ int loadPort(const string& filePath, priority_queue<Port, vector<Port>, PortComp
 		for (int i = 0; i < 2; ++i) {
 			stream << tempString[i];
 			stream >> tempInt[i];
-            stream.clear();
+			stream.clear();
 		}
 		total += tempInt[1];
 		posts.emplace(tempInt[0], tempInt[1]);
-        tempString.clear();
+		tempString.clear();
 	}
 	f.close();
 	return total;
 }
 
-int loadFlow(const string& filePath, vector<Flow>& flows) {
+int loadFlow(const string &filePath, vector<Flow> &flows) {
 	int total = 0;
 	fstream f(filePath.c_str());
 	if (!f.is_open()) {
@@ -303,17 +236,17 @@ int loadFlow(const string& filePath, vector<Flow>& flows) {
 		for (int i = 0; i < 4; ++i) {
 			stream << tempString[i];
 			stream >> tempInt[i];
-            stream.clear();
+			stream.clear();
 		}
 		total += tempInt[1];
 		flows.emplace_back(tempInt[0], tempInt[1], tempInt[2], tempInt[3]);
-        tempString.clear();
+		tempString.clear();
 	}
 	f.close();
 	return total;
 }
 
-int loadPort(const string& filePath, vector<Port>& posts) {
+int loadPort(const string &filePath, vector<Port> &posts) {
 	int total = 0;
 	fstream f(filePath.c_str());
 	if (!f.is_open()) {
@@ -330,26 +263,27 @@ int loadPort(const string& filePath, vector<Port>& posts) {
 		for (int i = 0; i < 2; ++i) {
 			stream << tempString[i];
 			stream >> tempInt[i];
-            stream.clear();
+			stream.clear();
 		}
 		total += tempInt[1];
 		posts.emplace_back(tempInt[0], tempInt[1]);
-        tempString.clear();
+		tempString.clear();
 	}
 	f.close();
 	return total;
 }
 
-void getPortWeight(vector<int>& portsWeight, vector<Port>& ports, int& postsTotalBandwidth, int& flowsTotalBandwidth) {
+void getPortWeight(vector<int> &portsWeight, vector<Port> &ports, int &postsTotalBandwidth, int &flowsTotalBandwidth) {
 	int portNum = ports.size();
 	portsWeight.resize(portNum);
 	for (int i = 0; i < portNum; ++i) {
-		portsWeight[i] = flowsTotalBandwidth * (double)ports[i].getBandwidth() / (double)postsTotalBandwidth;
+		portsWeight[i] = flowsTotalBandwidth * (double) ports[i].bandwidth / (double) postsTotalBandwidth;
 	}
 }
 
 // 静态选择队列，先这样搞吧，之后再搞动态的
-void getQueue(queue<Flow>* queues, vector<int>& queueBandwidth, vector<int> portsWeight, vector<Port>& ports, vector<Flow>& flows) {
+void getQueue(queue<Flow> *queues, vector<int> &queueBandwidth, vector<int> portsWeight, vector<Port> &ports,
+              vector<Flow> &flows) {
 	int queueNum = ports.size();
 	int time = 0;
 	int flowPos = 0;
@@ -357,25 +291,50 @@ void getQueue(queue<Flow>* queues, vector<int>& queueBandwidth, vector<int> port
 	int queuePos = 0;
 	while (flowPos < flowsNum) {
 		Flow flow = flows[flowPos];
-		if (flow.getStartTime() == time && queueBandwidth[queuePos] < portsWeight[queuePos]) {
+		if (flow.startTime == time && queueBandwidth[queuePos] < portsWeight[queuePos]) {
 			queues[queuePos].push(flow);
-			queueBandwidth[queuePos] += flow.getBandwidth();
+			queueBandwidth[queuePos] += flow.bandwidth;
 			flowPos++;
 			queuePos = (queuePos + 1) % queueNum;
-		} else if (flow.getStartTime() == time && queueBandwidth[queuePos] >= portsWeight[queuePos]) {
+		} else if (flow.startTime == time && queueBandwidth[queuePos] >= portsWeight[queuePos]) {
 			queuePos = queuePos + 1;
 			if (queuePos == queueNum) {
 				queuePos--;
 				queues[queuePos].push(flow);
-				queueBandwidth[queuePos] += flow.getBandwidth();
+				queueBandwidth[queuePos] += flow.bandwidth;
 				flowPos++;
 			}
-		} else if (flow.getStartTime() > time) {
-			time = flow.getStartTime();
+		} else if (flow.startTime > time) {
+			time++;
 		}
 	}
 }
 
+void getQueue(queue<Flow> *queues, vector<int> &queueBandwidth, vector<int> &portsWeight, vector<Port> &ports,
+              priority_queue<Flow, vector<Flow>, FlowComparer> &flows) {
+	int queueNum = ports.size();
+	int time = 0;
+	int queuePos = 0;
+	while (!flows.empty()) {
+		Flow flow = flows.top();
+		if (flow.startTime == time && queueBandwidth[queuePos] < portsWeight[queuePos]) {
+			queues[queuePos].push(flow);
+			queueBandwidth[queuePos] += flow.bandwidth;
+			queuePos = (queuePos + 1) % queueNum;
+			flows.pop();
+		} else if (flow.startTime == time && queueBandwidth[queuePos] >= portsWeight[queuePos]) {
+			queuePos = queuePos + 1;
+			if (queuePos == queueNum) {
+				queuePos--;
+				queues[queuePos].push(flow);
+				queueBandwidth[queuePos] += flow.bandwidth;
+				flows.pop();
+			}
+		} else if (flow.startTime > time) {
+			time++;
+		}
+	}
+}
 
 void write_file(string outFilePath, int flowPort, int portId, int beginTime) {
 	ofstream out(outFilePath, ios::app);
@@ -383,9 +342,9 @@ void write_file(string outFilePath, int flowPort, int portId, int beginTime) {
 	out.close();
 }
 
-void transfer(queue<Flow>& queue, Port& port, string& outFilePath) {
+void transfer(queue<Flow> queue, Port &port, vector<Result> &results) {
 	int time = 0;
-	int portId = port.getId();
+	int portId = port.id;
 	priority_queue<Flow, vector<Flow>, greater<Flow>> min_heap;
 	while (!queue.empty() || !min_heap.empty()) {
 		while (true) {
@@ -393,12 +352,13 @@ void transfer(queue<Flow>& queue, Port& port, string& outFilePath) {
 				break;
 			}
 			Flow flowAtPort = min_heap.top();
-			if (flowAtPort.getEndTime() != time) {
+			if (flowAtPort.endTime != time) {
 				break;
 			}
-			write_file(outFilePath, flowAtPort.getId(), portId, flowAtPort.getBeginTime());
-			// cout << flowAtPort.getId() << "," << portId << "," << flowAtPort.getBeginTime() << endl;
-			port.modifyRemain(- flowAtPort.getBandwidth());
+			// write_file(outFilePath, flowAtPort.id, portId, flowAtPort.beginTime);
+			// cout << flowAtPort.id << "," << portId << "," << flowAtPort.beginTime << endl;
+			results.emplace_back(flowAtPort.id, portId, flowAtPort.beginTime);
+			port.modifyRemain(-flowAtPort.bandwidth);
 			min_heap.pop();
 		}
 		while (true) {
@@ -406,13 +366,13 @@ void transfer(queue<Flow>& queue, Port& port, string& outFilePath) {
 				break;
 			}
 			Flow flowAtQueue = queue.front();
-			if (flowAtQueue.getStartTime() > time || port.getRemain() < flowAtQueue.getBandwidth()) {
+			if (flowAtQueue.startTime > time || port.remainBandwidth < flowAtQueue.bandwidth) {
 				break;
 			}
 			flowAtQueue.setBeginTime(time);
 			flowAtQueue.setEndTime(time);
 			min_heap.push(flowAtQueue);
-			port.modifyRemain(flowAtQueue.getBandwidth());
+			port.modifyRemain(flowAtQueue.bandwidth);
 			queue.pop();
 		}
 		time++;
@@ -425,7 +385,7 @@ int main() {
 		string flowsFile = dataPath + "/" + to_string(dirNum) + "/" + flowFile;
 		string portsFile = dataPath + "/" + to_string(dirNum) + "/" + portFile;
 		string resultsFile = dataPath + "/" + to_string(dirNum) + "/" + resultFile;
-		vector<Flow> flows;
+		priority_queue<Flow, vector<Flow>, FlowComparer> flows;
 		vector<Port> ports;
 		fstream f(portsFile.c_str());
 		if (!f.is_open()) {
@@ -434,7 +394,14 @@ int main() {
 		f.close();
 		int flowsTotalBandwidth = loadFlow(flowsFile, flows);
 		int postsTotalBandwidth = loadPort(portsFile, ports);
-		sort(flows.begin(), flows.end(), Flow::compareAsCompose);
+		int flowsNum = flows.size();
+		vector<Result> results;
+		results.reserve(flowsNum);
+		// while (!flows.empty()) {
+		// 	Flow flow = flows.top();
+		// 	cout << flow << endl;
+		// 	flows.pop();
+		// }
 		sort(ports.begin(), ports.end(), Port::compareAsBandwidth);
 		int queueNum = ports.size();
 		queue<Flow> queues[queueNum];
@@ -442,12 +409,16 @@ int main() {
 		vector<int> portsWeight(queueNum);
 		getPortWeight(portsWeight, ports, postsTotalBandwidth, flowsTotalBandwidth);
 		getQueue(queues, queueBandwidth, portsWeight, ports, flows);
-
+		// for (auto &queue : queues) {
+		// 	cout << queue.size() << endl;
+		// }
 		for (int i = 0; i < queueNum; ++i) {
 			// cout << queues[i].size() << endl;
-			transfer(queues[i], ports[i], resultsFile);
+			transfer(queues[i], ports[i], results);
 		}
-
+		for (Result result: results) {
+			write_file(resultsFile, result.flowId, result.portId, result.startSendTime);
+		}
 		// while (!queues[0].empty()) {
 		// 	Flow flow = queues[0].front();
 		// 	cout << flow << endl;
