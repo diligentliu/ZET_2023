@@ -23,74 +23,77 @@ public:
 	int sendTime;
 	double speed;
 
-	Flow(int id = 0, int bandwidth = 0, int startTime = 0, int sendTime = 0) {
-		this->id = id;
-		this->bandwidth = bandwidth;
-		this->startTime = startTime;
-		this->sendTime = sendTime;
-		this->beginTime = 0;
-		if (sendTime != 0) {
-			this->speed = (double) (bandwidth) / (double) (sendTime);
-		} else {
-			this->speed = 0.0;
-		}
-	}
+	Flow(int id = -1, int bandwidth = 0, int startTime = 0, int sendTime = 0);
+	bool isNull();
+	void setBeginTime(int beginTime);
+	void setEndTime(int beginTime);
+	bool operator<(const Flow &other) const;
+	bool operator>(const Flow &other) const;
+	bool operator==(const Flow &other) const;
+	static bool compareAsSSB(Flow &first, Flow &second);
+	static bool compareAsSpeed(Flow &first, Flow &second);
+	friend ostream &operator<<(ostream &out, Flow &flow);
+};
 
-	void setBeginTime(int beginTime) {
-		this->beginTime = beginTime;
+Flow::Flow(int id, int bandwidth, int startTime, int sendTime) {
+	this->id = id;
+	this->bandwidth = bandwidth;
+	this->startTime = startTime;
+	this->sendTime = sendTime;
+	this->beginTime = 0;
+	if (sendTime != 0) {
+		this->speed = (double) (bandwidth) / (double) (sendTime);
+	} else {
+		this->speed = 0.0;
 	}
+}
 
-	void setEndTime(int beginTime) {
-		this->endTime = beginTime + sendTime;
-	}
+bool Flow::isNull()  {
+	return id == -1;
+}
 
-	bool operator<(const Flow &other) const {
-		return this->endTime < other.endTime;
-	}
+void Flow::setBeginTime(int beginTime){
+	this->beginTime = beginTime;
+}
 
-	bool operator>(const Flow &other) const {
-		return this->endTime > other.endTime;
-	}
+void Flow::setEndTime(int beginTime) {
+	this->endTime = beginTime + sendTime;
+}
 
-	bool operator==(const Flow &other) const {
-		return this->endTime == other.endTime;
-	}
+bool Flow::operator<(const Flow &other) const {
+	return this->endTime < other.endTime;
+}
 
-	static bool compareAsStart(Flow &first, Flow &second) {
+bool Flow::operator>(const Flow &other) const {
+	return this->endTime > other.endTime;
+}
+
+bool Flow::operator==(const Flow &other) const {
+	return this->endTime == other.endTime;
+}
+
+bool Flow::compareAsSSB(Flow &first, Flow &second){
+	if (first.startTime != second.startTime) {
 		return first.startTime < second.startTime;
-	}
-
-	static bool compareAsSend(Flow &first, Flow &second) {
+	} else if (first.bandwidth != second.bandwidth) {
+		return first.bandwidth < second.bandwidth;
+	} else {
 		return first.sendTime < second.sendTime;
 	}
+}
 
-	static bool compareAsBandwidth(Flow &first, Flow &second) {
-		return first.bandwidth < second.bandwidth;
+bool Flow::compareAsSpeed(Flow &first, Flow &second) {
+	if (first.startTime != second.startTime) {
+		return first.startTime < second.startTime;
+	} else {
+		return first.speed > second.speed;
 	}
+}
 
-	static bool compareAsSSB(Flow &first, Flow &second) {
-		if (first.startTime != second.startTime) {
-			return first.startTime < second.startTime;
-		} else if (first.bandwidth != second.bandwidth) {
-			return first.bandwidth < second.bandwidth;
-		} else {
-			return first.sendTime < second.sendTime;
-		}
-	}
-
-	static bool compareAsSpeed(Flow &first, Flow &second) {
-		if (first.startTime != second.startTime) {
-			return first.startTime < second.startTime;
-		} else {
-			return first.speed > second.speed;
-		}
-	}
-
-	friend ostream &operator<<(ostream &out, Flow &flow) {
-		out << flow.id << "," << flow.bandwidth << "," << flow.startTime << "," << flow.sendTime << "," << flow.speed;
-		return out;
-	}
-};
+ostream &operator<<(ostream &out, Flow &flow) {
+	out << flow.id << "," << flow.bandwidth << "," << flow.startTime << "," << flow.sendTime << "," << flow.speed;
+	return out;
+}
 
 class FlowComparer {
 public:
@@ -105,29 +108,34 @@ public:
 	int bandwidth;
 	int remainBandwidth;
 
-	Port(int id, int bandwidth) {
-		this->id = id;
-		this->bandwidth = bandwidth;
-		this->remainBandwidth = bandwidth;
-	}
-
-	bool modifyRemain(int bw) {
-		if (bw > remainBandwidth) {
-			return false;
-		}
-		remainBandwidth -= bw;
-		return true;
-	}
-
-	static bool compareAsBandwidth(Port &first, Port &second) {
-		return first.bandwidth < second.bandwidth;
-	}
-
-	friend ostream &operator<<(ostream &out, Port &port) {
-		out << port.id << "," << port.bandwidth;
-		return out;
-	}
+	Port(int id, int bandwidth);
+	bool modifyRemain(int bw);
+	static bool compareAsBandwidth(Port &first, Port &second);
+	friend ostream &operator<<(ostream &out, Port &port);
 };
+
+Port::Port(int id, int bandwidth){
+	this->id = id;
+	this->bandwidth = bandwidth;
+	this->remainBandwidth = bandwidth;
+}
+
+bool Port::modifyRemain(int bw){
+	if (bw > remainBandwidth) {
+		return false;
+	}
+	remainBandwidth -= bw;
+	return true;
+}
+
+bool Port::compareAsBandwidth(Port &first, Port &second) {
+	return first.bandwidth < second.bandwidth;
+}
+
+ostream &operator<<(ostream &out, Port &port) {
+	out << port.id << "," << port.bandwidth;
+	return out;
+}
 
 class PortComparer {
 public:
@@ -142,17 +150,20 @@ public:
 	int portId;
 	int startSendTime;
 
-	Result(int flowId = 0, int portId = 0, int startSendTime = 0) {
-		this->flowId = flowId;
-		this->portId = portId;
-		this->startSendTime = startSendTime;
-	}
-
-	friend ostream &operator<<(ostream &out, Result &result) {
-		out << result.flowId << "," << result.portId << "," << result.startSendTime;
-		return out;
-	}
+	Result(int flowId = 0, int portId = 0, int startSendTime = 0);
+	friend ostream &operator<<(ostream &out, Result &result);
 };
+
+Result::Result(int flowId, int portId, int startSendTime) {
+	this->flowId = flowId;
+	this->portId = portId;
+	this->startSendTime = startSendTime;
+}
+
+ostream &operator<<(ostream &out, Result &result) {
+	out << result.flowId << "," << result.portId << "," << result.startSendTime;
+	return out;
+}
 
 void split(std::string str, std::vector<std::string> &result) {
 	char delimiter = ',';
@@ -342,6 +353,7 @@ void write_file(string outFilePath, int flowPort, int portId, int beginTime) {
 	out.close();
 }
 
+/*
 void transfer(queue<Flow> queue, Port &port, vector<Result> &results) {
 	int time = 0;
 	int portId = port.id;
@@ -378,6 +390,85 @@ void transfer(queue<Flow> queue, Port &port, vector<Result> &results) {
 		time++;
 	}
 }
+*/
+
+void transfer(queue<Flow> queue, Port &port, string& outFilePath) {
+	int time = 0;
+	int portId = port.id;
+	Flow temp;
+	Flow &flowAtPort = temp, flowAtQueue = temp;
+	priority_queue<Flow, vector<Flow>, greater<Flow>> min_heap;
+	while (!queue.empty()) {
+		if (!queue.empty()) {
+			flowAtQueue = queue.front();
+		}
+		if (!min_heap.empty()) {
+			flowAtPort = min_heap.top();
+		}
+		if (!flowAtPort.isNull()) {
+			int portPopTime = flowAtPort.endTime;
+			int queuePopTime = flowAtQueue.startTime;
+			if (queuePopTime < portPopTime && port.remainBandwidth >= flowAtQueue.bandwidth) {
+				time = max(time, queuePopTime);
+				flowAtQueue.setBeginTime(time);
+				flowAtQueue.setEndTime(time);
+				// cout << flowAtQueue.id << "," << portId << "," << flowAtQueue.beginTime << endl;
+				write_file(outFilePath, flowAtQueue.id, portId, flowAtQueue.beginTime);
+				min_heap.push(flowAtQueue);
+				port.modifyRemain(flowAtQueue.bandwidth);
+				queue.pop();
+			} else {
+				time = portPopTime;
+				port.modifyRemain(-flowAtPort.bandwidth);
+				min_heap.pop();
+				if (queuePopTime == portPopTime && port.remainBandwidth >= flowAtQueue.bandwidth) {
+					flowAtQueue.setBeginTime(time);
+					flowAtQueue.setEndTime(time);
+					// cout << flowAtQueue.id << "," << portId << "," << flowAtQueue.beginTime << endl;
+					write_file(outFilePath, flowAtQueue.id, portId, flowAtQueue.beginTime);
+					min_heap.push(flowAtQueue);
+					port.modifyRemain(flowAtQueue.bandwidth);
+					queue.pop();
+				}
+			}
+			// if (queuePopTime >= portPopTime ||
+			//     (queuePopTime < portPopTime && port.remainBandwidth < flowAtQueue.bandwidth)) {
+			// 	time = portPopTime;
+			// 	port.modifyRemain(-flowAtPort.bandwidth);
+			// 	min_heap.pop();
+			// 	if (queuePopTime == portPopTime && port.remainBandwidth >= flowAtQueue.bandwidth) {
+			// 		flowAtQueue.setBeginTime(time);
+			// 		flowAtQueue.setEndTime(time);
+			// 		// cout << flowAtQueue.id << "," << portId << "," << flowAtQueue.beginTime << endl;
+			// 		write_file(outFilePath, flowAtQueue.id, portId, flowAtQueue.beginTime);
+			// 		min_heap.push(flowAtQueue);
+			// 		port.modifyRemain(flowAtQueue.bandwidth);
+			// 		queue.pop();
+			// 	}
+			// } else {
+			// 	time = max(time, queuePopTime);
+			// 	flowAtQueue.setBeginTime(time);
+			// 	flowAtQueue.setEndTime(time);
+			// 	// cout << flowAtQueue.id << "," << portId << "," << flowAtQueue.beginTime << endl;
+			// 	write_file(outFilePath, flowAtQueue.id, portId, flowAtQueue.beginTime);
+			// 	min_heap.push(flowAtQueue);
+			// 	port.modifyRemain(flowAtQueue.bandwidth);
+			// 	queue.pop();
+			// }
+		} else {
+			time = flowAtQueue.startTime;
+			flowAtQueue.setBeginTime(time);
+			flowAtQueue.setEndTime(time);
+			// cout << flowAtQueue.id << "," << portId << "," << flowAtQueue.beginTime << endl;
+			write_file(outFilePath, flowAtQueue.id, portId, flowAtQueue.beginTime);
+			min_heap.push(flowAtQueue);
+			port.modifyRemain(flowAtQueue.bandwidth);
+			queue.pop();
+		}
+		flowAtPort = temp;
+		flowAtQueue = temp;
+	}
+}
 
 int main() {
 	int dirNum = 0;
@@ -395,8 +486,6 @@ int main() {
 		int flowsTotalBandwidth = loadFlow(flowsFile, flows);
 		int postsTotalBandwidth = loadPort(portsFile, ports);
 		int flowsNum = flows.size();
-		vector<Result> results;
-		results.reserve(flowsNum);
 		// while (!flows.empty()) {
 		// 	Flow flow = flows.top();
 		// 	cout << flow << endl;
@@ -409,16 +498,21 @@ int main() {
 		vector<int> portsWeight(queueNum);
 		getPortWeight(portsWeight, ports, postsTotalBandwidth, flowsTotalBandwidth);
 		getQueue(queues, queueBandwidth, portsWeight, ports, flows);
+		// while (!queues[0].empty()) {
+		// 	Flow flow = queues[0].front();
+		// 	cout << flow << endl;
+		// 	queues[0].pop();
+		// }
 		// for (auto &queue : queues) {
 		// 	cout << queue.size() << endl;
 		// }
 		for (int i = 0; i < queueNum; ++i) {
 			// cout << queues[i].size() << endl;
-			transfer(queues[i], ports[i], results);
+			transfer(queues[i], ports[i], resultsFile);
 		}
-		for (Result result: results) {
-			write_file(resultsFile, result.flowId, result.portId, result.startSendTime);
-		}
+		// for (Result result: results) {
+		// 	write_file(resultsFile, result.flowId, result.portId, result.startSendTime);
+		// }
 		// while (!queues[0].empty()) {
 		// 	Flow flow = queues[0].front();
 		// 	cout << flow << endl;
