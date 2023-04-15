@@ -180,8 +180,16 @@ void getPortWeight(vector<int> &portsWeight, vector<Port> &ports, int &postsTota
 
 void getQueue(list<Flow> *queues, vector<int> &queueBandwidth, vector<int> &portsWeight, int &queueNum,
               list<Flow> &flows, vector<Port>& ports) {
+	auto lambda = [&](Flow first, Flow second) {
+		if (first.startTime != second.startTime) {
+			return first.startTime < second.startTime;
+		} else if (first.bandwidth != second.bandwidth) {
+			return first.bandwidth < second.bandwidth;
+		} else {
+			return first.sendTime < second.sendTime;
+		}
+	};
 	int queuePos = queueNum - 1;
-	int flowPos = 0;
 	Flow flow;
 	for (int i = 0; i < queueNum - 1; ++i) {
 		while (queueBandwidth[i] < portsWeight[i]) {
@@ -195,6 +203,7 @@ void getQueue(list<Flow> *queues, vector<int> &queueBandwidth, vector<int> &port
 				flows.pop_front();
 			}
 		}
+		queues[i].sort(lambda);
 	}
 	while (!flows.empty()) {
 		flow = flows.front();
@@ -202,6 +211,7 @@ void getQueue(list<Flow> *queues, vector<int> &queueBandwidth, vector<int> &port
 		queueBandwidth[queuePos] += flow.bandwidth;
 		flows.pop_front();
 	}
+	queues[queuePos].sort(lambda);
 }
 
 void write_file(const char *outFilePath, int result[][3] , int num) {
@@ -308,6 +318,9 @@ int main() {
 		vector<int> portsWeight(queueNum);
 		getPortWeight(portsWeight, ports, postsTotalBandwidth, flowsTotalBandwidth);
 		getQueue(queues, queueBandwidth, portsWeight, queueNum, flows, ports);
+		// for (Flow flow : queues[0]) {
+		// 	cout << flow << endl;
+		// }
 		int num = 0;
 		for (int i = 0; i < queueNum; ++i) {
 			// cout << queues[i].size() << endl;
