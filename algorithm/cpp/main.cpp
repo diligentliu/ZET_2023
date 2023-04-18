@@ -8,6 +8,8 @@
 #include <queue>
 #include <climits>
 #include <cstdio>
+#include <random>
+#include <chrono>
 
 using namespace std;
 
@@ -293,6 +295,7 @@ void transfer(list<Flow> queue, Port &port, int results[][3], int& num) {
 
 int main() {
 	int dirNum = 0;
+	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 	while (true) {
 		string flowsFile;
 		flowsFile.append(dataPath).append("/").append(to_string(dirNum)).append("/").append(flowFile);
@@ -312,6 +315,9 @@ int main() {
 		int flowsNum = flows.size();
 		int (*results)[3] = new int[flowsNum][3];
 		sort(ports.begin(), ports.end(), Port::compareAsBandwidth);
+		vector<Flow> vectorFlows(flows.begin(), flows.end());
+		shuffle(vectorFlows.begin(), vectorFlows.end(), default_random_engine(seed));
+		flows = list<Flow>(vectorFlows.begin(), vectorFlows.end());
 		int queueNum = ports.size();
 		list<Flow> queues[queueNum];
 		vector<int> queueBandwidth(queueNum);
@@ -325,7 +331,6 @@ int main() {
 		for (int i = 0; i < queueNum; ++i) {
 			// cout << queues[i].size() << endl;
 			transfer(queues[i], ports[i], results, num);
-
 		}
 		write_file(resultsFile.c_str(), results, num - 1);
 		dirNum++;
