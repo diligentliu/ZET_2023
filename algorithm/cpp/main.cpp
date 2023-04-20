@@ -21,6 +21,7 @@ string resultFile = "result.txt";
 class Flow {
 public:
 	int id;
+	int portId;
 	int bandwidth;
 	int startTime;
 	int beginTime;
@@ -30,28 +31,23 @@ public:
 
 	Flow(int id = -1, int bandwidth = 0, int startTime = 0, int sendTime = 0);
 	bool isNull() const;
-	void setBeginTime(int );
-	void setEndTime(int beginTime);
+	void setBeginTime(int bt);
+	void setEndTime(int bt);
 	bool operator<(const Flow &other) const;
 	bool operator>(const Flow &other) const;
 	bool operator==(const Flow &other) const;
-	static bool compareAsSSB(Flow &first, Flow &second);
-	static bool compareAsSpeed(Flow &first, Flow &second);
 	friend ostream &operator<<(ostream &out, Flow &flow);
 };
 
 Flow::Flow(int id, int bandwidth, int startTime, int sendTime) {
 	this->id = id;
+	this->portId = -1;
 	this->bandwidth = bandwidth;
 	this->startTime = startTime;
 	this->sendTime = sendTime;
 	this->beginTime = 0;
 	this->endTime = INT_MAX;
-	if (sendTime != 0) {
-		this->speed = (double) (bandwidth) / (double) (sendTime);
-	} else {
-		this->speed = 0.0;
-	}
+	this->speed = (double) (sendTime) / (double) (bandwidth);
 }
 
 bool Flow::isNull() const {
@@ -76,24 +72,6 @@ bool Flow::operator>(const Flow &other) const {
 
 bool Flow::operator==(const Flow &other) const {
 	return this->endTime == other.endTime;
-}
-
-bool Flow::compareAsSSB(Flow &first, Flow &second) {
-	if (first.startTime != second.startTime) {
-		return first.startTime < second.startTime;
-	} else if (first.bandwidth != second.bandwidth) {
-		return first.bandwidth < second.bandwidth;
-	} else {
-		return first.sendTime < second.sendTime;
-	}
-}
-
-bool Flow::compareAsSpeed(Flow &first, Flow &second) {
-	if (first.startTime != second.startTime) {
-		return first.startTime < second.startTime;
-	} else {
-		return first.speed > second.speed;
-	}
 }
 
 ostream &operator<<(ostream &out, Flow &flow) {
@@ -185,16 +163,14 @@ void getQueue(list<Flow> *queues, vector<int> &queueBandwidth, vector<int> &port
 	auto lambda = [&](Flow first, Flow second) {
 		if (first.startTime != second.startTime) {
 			return first.startTime < second.startTime;
-		} else if (first.bandwidth != second.bandwidth) {
-			return first.bandwidth < second.bandwidth;
 		} else {
-			return first.sendTime < second.sendTime;
+			return first.speed < second.speed;
 		}
 	};
 	int queuePos = queueNum - 1;
 	Flow flow;
 	for (int i = 0; i < queueNum - 1; ++i) {
-		while (queueBandwidth[i] < portsWeight[i]) {
+		while (queueBandwidth[i] + flow.bandwidth < portsWeight[i]) {
 			flow = flows.front();
 			if (flow.bandwidth <= ports[i].bandwidth) {
 				queues[i].emplace_back(flow.id, flow.bandwidth, flow.startTime, flow.sendTime);
@@ -224,16 +200,14 @@ void write_file(const char *outFilePath, int result[][3] , int num) {
 	fclose(fpWrite);
 }
 
-void transfer(list<Flow> queue, Port &port, int results[][3], int& num) {
+void transfer(list<Flow> &queue, Port &port, int results[][3], int& num) {
 	int time = 0;
 	int portId = port.id;
 	Flow temp;
 	Flow flowAtPort = temp, flowAtQueue = temp;
 	priority_queue<Flow, vector<Flow>, greater<Flow>> min_heap;
 	while (!queue.empty()) {
-		if (!queue.empty()) {
-			flowAtQueue = queue.front();
-		}
+		flowAtQueue = queue.front();
 		if (!min_heap.empty()) {
 			flowAtPort = min_heap.top();
 		}
@@ -296,6 +270,10 @@ void transfer(list<Flow> queue, Port &port, int results[][3], int& num) {
 int main() {
 	int dirNum = 0;
 	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+	cout << seed << endl;
+	auto lambda = [&](Flow first, Flow second) {
+		return first.speed < second.speed;
+	};
 	while (true) {
 		string flowsFile;
 		flowsFile.append(dataPath).append("/").append(to_string(dirNum)).append("/").append(flowFile);
@@ -315,6 +293,7 @@ int main() {
 		int flowsNum = flows.size();
 		int (*results)[3] = new int[flowsNum][3];
 		sort(ports.begin(), ports.end(), Port::compareAsBandwidth);
+		// flows.sort(lambda);
 		vector<Flow> vectorFlows(flows.begin(), flows.end());
 		shuffle(vectorFlows.begin(), vectorFlows.end(), default_random_engine(seed));
 		flows = list<Flow>(vectorFlows.begin(), vectorFlows.end());
@@ -332,7 +311,7 @@ int main() {
 			// cout << queues[i].size() << endl;
 			transfer(queues[i], ports[i], results, num);
 		}
-		write_file(resultsFile.c_str(), results, num - 1);
+		write_file(resultsFile.c_str(), results, flowsNum - 1);
 		dirNum++;
 		delete [] results;
 	}
