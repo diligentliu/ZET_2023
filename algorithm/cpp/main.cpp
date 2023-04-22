@@ -8,8 +8,6 @@
 #include <queue>
 #include <climits>
 #include <cstdio>
-#include <random>
-#include <chrono>
 
 using namespace std;
 
@@ -87,7 +85,9 @@ public:
 
 	Port(int id, int bandwidth);
 	bool modifyRemain(int bw);
-	static bool compareAsBandwidth(Port &first, Port &second);
+	bool operator<(const Port &other) const ;
+	bool operator==(const Port &other) const ;
+	bool operator>(const Port &other) const ;
 	friend ostream &operator<<(ostream &out, Port &port);
 };
 
@@ -105,8 +105,16 @@ bool Port::modifyRemain(int bw) {
 	return true;
 }
 
-bool Port::compareAsBandwidth(Port &first, Port &second) {
-	return first.bandwidth < second.bandwidth;
+bool Port::operator<(const Port &other) const {
+	return this->remainBandwidth < other.remainBandwidth;
+}
+
+bool Port::operator>(const Port &other) const {
+	return this->remainBandwidth > other.remainBandwidth;
+}
+
+bool Port::operator==(const Port &other) const {
+	return this->remainBandwidth == other.remainBandwidth;
 }
 
 ostream &operator<<(ostream &out, Port &port) {
@@ -114,11 +122,10 @@ ostream &operator<<(ostream &out, Port &port) {
 	return out;
 }
 
-int loadFlow(const char *filePath, list<Flow> &flows) {
-	int total = 0;
+void loadFlow(const char *filePath, list<Flow> &flows) {
 	FILE *fpRead = fopen(filePath, "r");
 	if (fpRead == nullptr) {
-		return -1;
+		return;
 	}
 	int id;
 	int bandwidth;
@@ -127,69 +134,22 @@ int loadFlow(const char *filePath, list<Flow> &flows) {
 	// 忽略第一行
 	fscanf(fpRead, "%*[^\n]%*c");
 	while (fscanf(fpRead, "%d,%d,%d,%d\n", &id, &bandwidth, &startTime, &sendTime) != EOF) {
-		total += bandwidth;
 		flows.emplace_back(id, bandwidth, startTime, sendTime);
 	}
-	return total;
 }
 
-int loadPort(const char *filePath, vector<Port> &posts) {
-	int total = 0;
+void loadPort(const char *filePath, vector<Port> &posts) {
 	FILE *fpRead = fopen(filePath, "r");
 	if (fpRead == nullptr) {
-		return -1;
+		return;
 	}
 	int id;
 	int bandwidth;
 	// 忽略第一行
 	fscanf(fpRead, "%*[^\n]%*c");
 	while (fscanf(fpRead, "%d,%d\n", &id, &bandwidth) != EOF) {
-		total += bandwidth;
 		posts.emplace_back(id, bandwidth);
 	}
-	return total;
-}
-
-void getPortWeight(vector<int> &portsWeight, vector<Port> &ports, int &postsTotalBandwidth, int &flowsTotalBandwidth) {
-	int portNum = ports.size();
-	portsWeight.resize(portNum);
-	for (int i = 0; i < portNum; ++i) {
-		portsWeight[i] = flowsTotalBandwidth * (double) ports[i].bandwidth / (double) postsTotalBandwidth;
-	}
-}
-
-void getQueue(list<Flow> *queues, vector<int> &queueBandwidth, vector<int> &portsWeight, int &queueNum,
-              list<Flow> &flows, vector<Port>& ports) {
-	auto lambda = [&](Flow first, Flow second) {
-		if (first.startTime != second.startTime) {
-			return first.startTime < second.startTime;
-		} else {
-			return first.speed < second.speed;
-		}
-	};
-	int queuePos = queueNum - 1;
-	Flow flow;
-	for (int i = 0; i < queueNum - 1; ++i) {
-		while (queueBandwidth[i] + flow.bandwidth < portsWeight[i]) {
-			flow = flows.front();
-			if (flow.bandwidth <= ports[i].bandwidth) {
-				queues[i].emplace_back(flow.id, flow.bandwidth, flow.startTime, flow.sendTime);
-				queueBandwidth[i] += flow.bandwidth;
-				flows.pop_front();
-			} else {
-				flows.push_back(flow);
-				flows.pop_front();
-			}
-		}
-		queues[i].sort(lambda);
-	}
-	while (!flows.empty()) {
-		flow = flows.front();
-		queues[queuePos].emplace_back(flow.id, flow.bandwidth, flow.startTime, flow.sendTime);
-		queueBandwidth[queuePos] += flow.bandwidth;
-		flows.pop_front();
-	}
-	queues[queuePos].sort(lambda);
 }
 
 void write_file(const char *outFilePath, int result[][3] , int num) {
@@ -200,79 +160,97 @@ void write_file(const char *outFilePath, int result[][3] , int num) {
 	fclose(fpWrite);
 }
 
-void transfer(list<Flow> &queue, Port &port, int results[][3], int& num) {
+void transfer(list<Flow> &flows, vector<Port> &ports, const string &resultsFile) {
+	FILE *fpWrite = fopen(resultsFile.c_str(), "w");
+	sort(ports.begin(), ports.end(), less<Port>());
+	int portNum = ports.size();
+	int num = 0;
 	int time = 0;
-	int portId = port.id;
 	Flow temp;
-	Flow flowAtPort = temp, flowAtQueue = temp;
+	Flow flowAtQueue, flowAtPort;
 	priority_queue<Flow, vector<Flow>, greater<Flow>> min_heap;
-	while (!queue.empty()) {
-		flowAtQueue = queue.front();
+	while (!flows.empty()) {
+		flowAtQueue = flows.front();
 		if (!min_heap.empty()) {
 			flowAtPort = min_heap.top();
 		}
 		if (!flowAtPort.isNull()) {
 			int portPopTime = flowAtPort.endTime;
 			int queuePopTime = flowAtQueue.startTime;
-			if (queuePopTime < portPopTime && port.remainBandwidth >= flowAtQueue.bandwidth) {
-				time = max(time, queuePopTime);
-				flowAtQueue.setBeginTime(time);
-				flowAtQueue.setEndTime(time);
-				// cout << flowAtQueue.id << "," << portId << "," << flowAtQueue.beginTime << endl;
-				// write_file(outFilePath, flowAtQueue.id, portId, flowAtQueue.beginTime);
-				// results.emplace_back(flowAtQueue.id, portId, flowAtQueue.beginTime);
-				results[num][0] = flowAtQueue.id;
-				results[num][1] = portId;
-				results[num][2] = flowAtQueue.beginTime;
-				num++;
-				min_heap.push(flowAtQueue);
-				port.modifyRemain(flowAtQueue.bandwidth);
-				queue.pop_front();
-			} else {
-				time = portPopTime;
-				port.modifyRemain(-flowAtPort.bandwidth);
-				min_heap.pop();
-				if (queuePopTime == portPopTime && port.remainBandwidth >= flowAtQueue.bandwidth) {
+			if (queuePopTime <= portPopTime) {
+				int i = 0;
+				for (; i < portNum; ++i) {
+					if (ports[i].remainBandwidth >= flowAtQueue.bandwidth) {
+						break;
+					}
+				}
+				if (i != portNum) {
+					time = max(time, queuePopTime);
 					flowAtQueue.setBeginTime(time);
 					flowAtQueue.setEndTime(time);
-					// cout << flowAtQueue.id << "," << portId << "," << flowAtQueue.beginTime << endl;
-					// write_file(outFilePath, flowAtQueue.id, portId, flowAtQueue.beginTime);
-					// results.emplace_back(flowAtQueue.id, portId, flowAtQueue.beginTime);
-					results[num][0] = flowAtQueue.id;
-					results[num][1] = portId;
-					results[num][2] = flowAtQueue.beginTime;
+					flowAtQueue.portId = ports[i].id;
+					fprintf(fpWrite, "%d,%d,%d\n", flowAtQueue.id, ports[i].id, flowAtQueue.beginTime);
 					num++;
 					min_heap.push(flowAtQueue);
-					port.modifyRemain(flowAtQueue.bandwidth);
-					queue.pop_front();
+					ports[i].modifyRemain(flowAtQueue.bandwidth);
+					sort(ports.begin(), ports.end(), less<Port>());
+					flows.pop_front();
+				} else {
+					time = portPopTime;
+					int j = 0;
+					for (; j < portNum; ++j) {
+						if (ports[j].id == flowAtPort.portId) {
+							break;
+						}
+					}
+					ports[j].modifyRemain(-flowAtPort.bandwidth);
+					sort(ports.begin(), ports.end(), less<Port>());
+					min_heap.pop();
 				}
+			} else {
+				time = portPopTime;
+				int j = 0;
+				for (; j < portNum; ++j) {
+					if (ports[j].id == flowAtPort.portId) {
+						break;
+					}
+				}
+				ports[j].modifyRemain(-flowAtPort.bandwidth);
+				sort(ports.begin(), ports.end(), less<Port>());
+				min_heap.pop();
 			}
 		} else {
 			time = max(time, flowAtQueue.startTime);
 			flowAtQueue.setBeginTime(time);
 			flowAtQueue.setEndTime(time);
-			// cout << flowAtQueue.id << "," << portId << "," << flowAtQueue.beginTime << endl;
-			// write_file(outFilePath, flowAtQueue.id, portId, flowAtQueue.beginTime);
-			// results.emplace_back(flowAtQueue.id, portId, flowAtQueue.beginTime);
-			results[num][0] = flowAtQueue.id;
-			results[num][1] = portId;
-			results[num][2] = flowAtQueue.beginTime;
+			int i = 0;
+			for (; i < portNum; ++i) {
+				if (ports[i].remainBandwidth >= flowAtQueue.bandwidth) {
+					break;
+				}
+			}
+			flowAtQueue.portId = ports[i].id;
+			fprintf(fpWrite, "%d,%d,%d\n", flowAtQueue.id, ports[i].id, flowAtQueue.beginTime);
 			num++;
 			min_heap.push(flowAtQueue);
-			port.modifyRemain(flowAtQueue.bandwidth);
-			queue.pop_front();
+			ports[i].modifyRemain(flowAtQueue.bandwidth);
+			sort(ports.begin(), ports.end(), less<Port>());
+			flows.pop_front();
 		}
-		flowAtPort = temp;
 		flowAtQueue = temp;
+		flowAtPort = temp;
 	}
+	fclose(fpWrite);
 }
 
 int main() {
 	int dirNum = 0;
-	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-	cout << seed << endl;
 	auto lambda = [&](Flow first, Flow second) {
-		return first.speed < second.speed;
+		if (first.startTime != second.startTime) {
+			return first.startTime < second.startTime;
+		} else {
+			return first.sendTime < second.sendTime;
+		}
 	};
 	while (true) {
 		string flowsFile;
@@ -288,31 +266,11 @@ int main() {
 			return 0;
 		}
 		fclose(f);
-		int flowsTotalBandwidth = loadFlow(flowsFile.c_str(), flows);
-		int postsTotalBandwidth = loadPort(portsFile.c_str(), ports);
-		int flowsNum = flows.size();
-		int (*results)[3] = new int[flowsNum][3];
-		sort(ports.begin(), ports.end(), Port::compareAsBandwidth);
-		// flows.sort(lambda);
-		vector<Flow> vectorFlows(flows.begin(), flows.end());
-		shuffle(vectorFlows.begin(), vectorFlows.end(), default_random_engine(seed));
-		flows = list<Flow>(vectorFlows.begin(), vectorFlows.end());
-		int queueNum = ports.size();
-		list<Flow> queues[queueNum];
-		vector<int> queueBandwidth(queueNum);
-		vector<int> portsWeight(queueNum);
-		getPortWeight(portsWeight, ports, postsTotalBandwidth, flowsTotalBandwidth);
-		getQueue(queues, queueBandwidth, portsWeight, queueNum, flows, ports);
-		// for (Flow flow : queues[0]) {
-		// 	cout << flow << endl;
-		// }
-		int num = 0;
-		for (int i = 0; i < queueNum; ++i) {
-			// cout << queues[i].size() << endl;
-			transfer(queues[i], ports[i], results, num);
-		}
-		write_file(resultsFile.c_str(), results, flowsNum - 1);
+		loadFlow(flowsFile.c_str(), flows);
+		loadPort(portsFile.c_str(), ports);
+
+		flows.sort(lambda);
+		transfer(flows, ports, resultsFile);
 		dirNum++;
-		delete [] results;
 	}
 }

@@ -1,5 +1,6 @@
 # 项目排除路径
 /cmake-build-debug/
+/cmake-build-asan/
 /.idea/
 /.vscode/
 /build/
