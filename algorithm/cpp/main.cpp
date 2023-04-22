@@ -2,12 +2,8 @@
 #include <algorithm>
 #include <vector>
 #include <list>
-#include <sstream>
-#include <fstream>
-#include <string>
 #include <queue>
 #include <climits>
-#include <cstdio>
 
 using namespace std;
 
