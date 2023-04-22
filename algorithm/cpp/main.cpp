@@ -152,18 +152,10 @@ void loadPort(const char *filePath, vector<Port> &posts) {
 	}
 }
 
-void write_file(const char *outFilePath, int result[][3] , int num) {
-	FILE *fpWrite = fopen(outFilePath, "w");
-	for (int i = 0; i <= num; ++i) {
-		fprintf(fpWrite, "%d,%d,%d\n", result[i][0], result[i][1], result[i][2]);
-	}
-	fclose(fpWrite);
-}
-
 void transfer(list<Flow> &flows, vector<Port> &ports, const string &resultsFile) {
 	FILE *fpWrite = fopen(resultsFile.c_str(), "w");
 	sort(ports.begin(), ports.end(), less<Port>());
-	int portNum = ports.size();
+	unsigned portNum = ports.size();
 	int num = 0;
 	int time = 0;
 	Flow temp;
@@ -237,7 +229,6 @@ void transfer(list<Flow> &flows, vector<Port> &ports, const string &resultsFile)
 			sort(ports.begin(), ports.end(), less<Port>());
 			flows.pop_front();
 		}
-		flowAtQueue = temp;
 		flowAtPort = temp;
 	}
 	fclose(fpWrite);
