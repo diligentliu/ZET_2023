@@ -1,6 +1,9 @@
-cmake_minimum_required(VERSION 3.16)
-project(ZET)
+cmake_minimum_required(VERSION 3.8)
 
-set(CMAKE_CXX_STANDARD 11)
+project(determine)
 
-add_executable(ZET algorithm/cpp/main.cpp)
+add_subdirectory(determine)
+
+add_subdirectory(data_generator)
+
+add_subdirectory(solve)
