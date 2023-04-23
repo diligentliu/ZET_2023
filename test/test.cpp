@@ -7,7 +7,7 @@
 
 using namespace std;
 
-string dataPath = "../data";
+string dataPath = "../testData";
 string flowFile = "flow.txt";
 string portFile = "port.txt";
 string resultFile = "result.txt";
@@ -24,7 +24,7 @@ public:
 	double speed;
 	double compose;
 
-	Flow(int id = -1, int bandwidth = 0, int startTime = 0, int sendTime = 0);
+	Flow(int id = -1, int bandwidth = 0, int startTime = 0, int sendTime = 0, double a = .0, double b = .0, double c = .0);
 	bool isNull() const;
 	void setBeginTime(int bt);
 	void setEndTime(int bt);
@@ -34,7 +34,7 @@ public:
 	friend ostream &operator<<(ostream &out, Flow &flow);
 };
 
-Flow::Flow(int id, int bandwidth, int startTime, int sendTime) {
+Flow::Flow(int id, int bandwidth, int startTime, int sendTime, double a, double b, double c) {
 	this->id = id;
 	this->portId = -1;
 	this->bandwidth = bandwidth;
@@ -43,7 +43,7 @@ Flow::Flow(int id, int bandwidth, int startTime, int sendTime) {
 	this->beginTime = 0;
 	this->endTime = INT_MAX;
 	this->speed = (double) (bandwidth) / (double) (sendTime);
-	this->compose = (double) startTime - 1 * (double) sendTime;
+	this->compose = c * (double) startTime + a * (double) sendTime + b * (double) bandwidth;
 }
 
 bool Flow::isNull() const {
@@ -120,7 +120,7 @@ ostream &operator<<(ostream &out, Port &port) {
 	return out;
 }
 
-void loadFlow(const char *filePath, list<Flow> &flows) {
+void loadFlow(const char *filePath, list<Flow> &flows, double &a, double &b, double &c) {
 	FILE *fpRead = fopen(filePath, "r");
 	if (fpRead == nullptr) {
 		return;
@@ -132,7 +132,7 @@ void loadFlow(const char *filePath, list<Flow> &flows) {
 	// 忽略第一行
 	fscanf(fpRead, "%*[^\n]%*c");
 	while (fscanf(fpRead, "%d,%d,%d,%d\n", &id, &bandwidth, &startTime, &sendTime) != EOF) {
-		flows.emplace_back(id, bandwidth, startTime, sendTime);
+		flows.emplace_back(id, bandwidth, startTime, sendTime, a, b, c);
 	}
 }
 
@@ -150,9 +150,10 @@ void loadPort(const char *filePath, vector<Port> &posts) {
 	}
 }
 
-void transfer(list<Flow> &flows, vector<Port> &ports, const string &resultsFile) {
+int transfer(list<Flow> &flows, vector<Port> &ports, const string &resultsFile) {
 	FILE *fpWrite = fopen(resultsFile.c_str(), "w");
 	sort(ports.begin(), ports.end(), less<Port>());
+	int ret = 0;
 	unsigned portNum = ports.size();
 	int num = 0;
 	int time = 0;
@@ -179,7 +180,8 @@ void transfer(list<Flow> &flows, vector<Port> &ports, const string &resultsFile)
 					flowAtQueue.setBeginTime(time);
 					flowAtQueue.setEndTime(time);
 					flowAtQueue.portId = ports[i].id;
-					fprintf(fpWrite, "%d,%d,%d\n", flowAtQueue.id, ports[i].id, flowAtQueue.beginTime);
+					// fprintf(fpWrite, "%d,%d,%d\n", flowAtQueue.id, ports[i].id, flowAtQueue.beginTime);
+					ret = max(ret, flowAtQueue.endTime);
 					num++;
 					min_heap.push(flowAtQueue);
 					ports[i].modifyRemain(flowAtQueue.bandwidth);
@@ -220,7 +222,8 @@ void transfer(list<Flow> &flows, vector<Port> &ports, const string &resultsFile)
 				}
 			}
 			flowAtQueue.portId = ports[i].id;
-			fprintf(fpWrite, "%d,%d,%d\n", flowAtQueue.id, ports[i].id, flowAtQueue.beginTime);
+			// fprintf(fpWrite, "%d,%d,%d\n", flowAtQueue.id, ports[i].id, flowAtQueue.beginTime);
+			ret = max(ret, flowAtQueue.endTime);
 			num++;
 			min_heap.push(flowAtQueue);
 			ports[i].modifyRemain(flowAtQueue.bandwidth);
@@ -230,18 +233,17 @@ void transfer(list<Flow> &flows, vector<Port> &ports, const string &resultsFile)
 		flowAtPort = temp;
 	}
 	fclose(fpWrite);
+	return ret;
 }
 
-int main() {
+int main (int argc,char *argv[]) {
 	int dirNum = 0;
 	auto lambda = [&](Flow first, Flow second) {
-		// if (first.startTime != second.startTime) {
-		// 	return first.startTime < second.startTime;
-		// } else {
-		// 	return first.sendTime < second.sendTime;
-		// }
 		return first.compose < second.compose;
 	};
+	double a = stod(argv[1]);
+	double b = stod(argv[2]);
+	double c = stod(argv[3]);
 	while (true) {
 		string flowsFile;
 		flowsFile.append(dataPath).append("/").append(to_string(dirNum)).append("/").append(flowFile);
@@ -256,11 +258,13 @@ int main() {
 			return 0;
 		}
 		fclose(f);
-		loadFlow(flowsFile.c_str(), flows);
+		loadFlow(flowsFile.c_str(), flows, a, b, c);
 		loadPort(portsFile.c_str(), ports);
 
 		flows.sort(lambda);
-		transfer(flows, ports, resultsFile);
+		int ret = transfer(flows, ports, resultsFile);
+		cout << ret << endl;
+		return ret;
 		dirNum++;
 	}
 }
