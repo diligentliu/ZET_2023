@@ -43,7 +43,7 @@ Flow::Flow(int id, int bandwidth, int startTime, int sendTime) {
 	this->beginTime = 0;
 	this->endTime = INT_MAX;
 	this->speed = (double) (bandwidth) / (double) (sendTime);
-	this->compose = (double) startTime - 1 * (double) sendTime;
+	this->compose = (double) startTime - 0.1 * (double) sendTime;
 }
 
 bool Flow::isNull() const {
