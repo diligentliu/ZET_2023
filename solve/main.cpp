@@ -41,7 +41,7 @@ Flow::Flow(int id, int bandwidth, int startTime, int sendTime) {
 	this->sendTime = sendTime;
 	this->beginTime = 0;
 	this->endTime = INT_MAX;
-	this->speed = (double) (sendTime) / (double) (bandwidth);
+	this->speed = (double) (bandwidth) / (double) (sendTime);
 }
 
 bool Flow::isNull() const {
@@ -238,6 +238,7 @@ int main() {
 		} else {
 			return first.sendTime < second.sendTime;
 		}
+		// return first.bandwidth > second.bandwidth;
 	};
 	while (true) {
 		string flowsFile;

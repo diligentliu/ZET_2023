@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.8)
 
-project(determine)
+project(ZET_2023)
 
 add_subdirectory(determine)
 
