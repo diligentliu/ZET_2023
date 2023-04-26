@@ -6,6 +6,8 @@ add_subdirectory(determine)
 
 add_subdirectory(data_generator)
 
-add_subdirectory(solve)
+add_subdirectory(solve1)
+
+add_subdirectory(solve2)
 
 add_subdirectory(test)
