@@ -283,12 +283,9 @@ int main() {
 		fclose(f);
 		loadFlow(flowsFile.c_str(), flows);
 		loadPort(portsFile.c_str(), ports);
-		FILE *fpWrite = fopen("../../all.txt", "w");
 
 		flows.sort(lambda);
-		for (auto &flow: flows) {
-			fprintf(fpWrite, "%d,%d,%d,%d\n", flow.id, flow.bandwidth, flow.startTime, flow.sendTime);
-		}
+
 		transfer(flows, ports, resultsFile);
 		dirNum++;
 	}
