@@ -4,6 +4,8 @@ project(ZET_2023)
 
 add_subdirectory(determine)
 
+add_subdirectory(determine_2)
+
 add_subdirectory(data_generator)
 
 add_subdirectory(solve1)
