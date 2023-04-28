@@ -1,33 +1,31 @@
 #!/bin/bash
 
-g++ ./test.cpp -o test
+# Compile the C++ program
+g++ test.cpp -o test
+g++ ../determine_2/determine_2.cpp -o determine_2
 
-best_a=-10.3
-best_b=-10.3
-best_c=-10.3
-best_return=9999999
+# Set initial values for minimum a and minimum result
+min_a=-10
+./test $min_a
+min_result=$(./determine_2)
 
-a=2.3
-while (( $(echo "$a <= 1.0" | bc -l) )); do
-    b=2.3
-    while (( $(echo "$b <= 1.0" | bc -l) )); do
-        c=2.3
-        while (( $(echo "$c <= 1.0" | bc -l) )); do
-            return_val=$(./test $a $b $c)
-            if (( $(echo "$return_val < $best_return" | bc -l) )); then
-                best_return=$return_val
-                best_a=$a
-                best_b=$b
-                best_c=$c
-            fi
-            c=$(echo "$c + 0.01" | bc)
-        done
-        b=$(echo "$b + 0.01" | bc)
-    done
-    a=$(echo "$a + 0.01" | bc)
+# Loop through all values of a
+for a in $(seq -f "%.1f" -9.9 0.1 10); do
+    # Run test program with current a value
+    ./test $a
+
+    # Run determine_2 program and get the result
+    result=$(./determine_2)
+
+    # Check if current result is less than minimum result
+    if (( $(echo "$result < $min_result" | bc -l) )); then
+        min_result=$result
+        min_a=$a
+    fi
+
+    # Print the result for the current a value
+    printf "Result for a=%.1f: %.6f\n" $a $result
 done
 
-echo "Best a: $best_a"
-echo "Best b: $best_b"
-echo "Best c: $best_c"
-echo "Best return value: $best_return"
+# Print the minimum result and the value of a that produced it
+printf "Minimum result is %.6f for a=%.1f\n" $min_result $min_a

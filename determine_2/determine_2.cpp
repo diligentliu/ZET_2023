@@ -334,6 +334,7 @@ int main() {
 		flows.clear();
 		ports.clear();
 		res.clear();
+		// cout << thistime << endl;
 	}
 	//cout << "总和理论最优：" << allbest << endl;
 	//cout << "总和实际结果：" << alltime << endl;

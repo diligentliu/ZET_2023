@@ -251,7 +251,7 @@ int main() {
 	double bestscore = 0;
 	string path;
 	while (true) {
-		path = "../data/" + to_string(No);
+		path = "../data_/" + to_string(No);
 		if (!Input(path, flows, ports, res))
 			break;
 		stable_sort(res.begin(), res.end(), [](const Result &x, const Result &y) { return x.sendtime < y.sendtime; });
