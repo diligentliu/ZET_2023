@@ -251,7 +251,7 @@ int main() {
 	double bestscore = 0;
 	string path;
 	while (true) {
-		path = "../data/" + to_string(No);
+		path = "../testData/" + to_string(No);
 		if (!Input(path, flows, ports, res))
 			break;
 		stable_sort(res.begin(), res.end(), [](const Result &x, const Result &y) { return x.sendtime < y.sendtime; });
@@ -259,23 +259,25 @@ int main() {
 		double thisbest = best(flows, ports);
 		alltime += thistime;
 		allbest += thisbest;
-		cout << "第" << No << "号文件：" << endl;
-		cout << "理论最优：" << thisbest << endl;
-		cout << "实际结果：" << thistime << endl;
-		cout << "分数：" << 100 / (log(thistime) / log(10)) << endl;
-		cout << "理论最高分数：" << 100 / (log(thisbest) / log(10)) << endl;
-		cout << endl;
+		// cout << "第" << No << "号文件：" << endl;
+		// cout << "理论最优：" << thisbest << endl;
+		// cout << "实际结果：" << thistime << endl;
+		// cout << "分数：" << 100 / (log(thistime) / log(10)) << endl;
+		// cout << "理论最高分数：" << 100 / (log(thisbest) / log(10)) << endl;
+		// cout << endl;
 		score += 100 / (log(thistime) / log(10));
 		bestscore += 100 / (log(thisbest) / log(10));
 		++No;
 		flows.clear();
 		ports.clear();
 		res.clear();
+		cout << alltime;
+		return alltime;
 	}
-	cout << "总和理论最优：" << allbest << endl;
-	cout << "总和实际结果：" << alltime << endl;
-	cout << "总分数：" << setprecision(10) << score / No << endl;
-	cout << "总理论最高分数：" << setprecision(10) << bestscore / No << endl;
+	// cout << "总和理论最优：" << allbest << endl;
+	// cout << "总和实际结果：" << alltime << endl;
+	// cout << "总分数：" << setprecision(10) << score / No << endl;
+	// cout << "总理论最高分数：" << setprecision(10) << bestscore / No << endl;
 
 	return 0;
 }

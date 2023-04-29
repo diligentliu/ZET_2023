@@ -7,7 +7,7 @@
 
 using namespace std;
 
-string dataPath = "../data";
+string dataPath = "../testData";
 string flowFile = "flow.txt";
 string portFile = "port.txt";
 string resultFile = "result.txt";
@@ -24,7 +24,7 @@ public:
 	double speed;
 	double compose;
 
-	explicit Flow(int id = -1, int bandwidth = 0, int startTime = 0, int sendTime = 0);
+	explicit Flow(int id = -1, int bandwidth = 0, int startTime = 0, int sendTime = 0, double a = .0, double b = .0);
 	bool isNull() const;
 	void setBeginTime(int bt);
 	void setEndTime(int bt);
@@ -34,7 +34,7 @@ public:
 	friend ostream &operator<<(ostream &out, Flow &flow);
 };
 
-Flow::Flow(int id, int bandwidth, int startTime, int sendTime) {
+Flow::Flow(int id, int bandwidth, int startTime, int sendTime, double a, double b) {
 	this->id = id;
 	this->portId = -1;
 	this->bandwidth = bandwidth;
@@ -43,7 +43,7 @@ Flow::Flow(int id, int bandwidth, int startTime, int sendTime) {
 	this->beginTime = 0;
 	this->endTime = INT_MAX;
 	this->speed = (double) (sendTime) / (double) (bandwidth);
-	this->compose = (double) startTime - 1.4 * (double) sendTime;
+	this->compose = (double) startTime + a * (double) sendTime + b * (double) bandwidth;
 }
 
 bool Flow::isNull() const {
@@ -120,7 +120,7 @@ ostream &operator<<(ostream &out, Port &port) {
 	return out;
 }
 
-void loadFlow(const char *filePath, list<Flow> &flows) {
+void loadFlow(const char *filePath, list<Flow> &flows, double &a, double &b) {
 	FILE *fpRead = fopen(filePath, "r");
 	if (fpRead == nullptr) {
 		return;
@@ -132,7 +132,7 @@ void loadFlow(const char *filePath, list<Flow> &flows) {
 	// 忽略第一行
 	fscanf(fpRead, "%*[^\n]%*c");
 	while (fscanf(fpRead, "%d,%d,%d,%d\n", &id, &bandwidth, &startTime, &sendTime) != EOF) {
-		flows.emplace_back(id, bandwidth, startTime, sendTime);
+		flows.emplace_back(id, bandwidth, startTime, sendTime, a, b);
 	}
 }
 
@@ -320,8 +320,10 @@ void solution(list<Flow> &flows, vector<Port> &ports, const string &resultsFile)
 	fclose(fpWrite);
 }
 
-int main() {
+int main(int argc, char const *argv[]) {
 	int dirNum = 0;
+	double a = stod(argv[1]);
+	double b = stod(argv[2]);
 	while (true) {
 		string flowsFilePath;
 		flowsFilePath.append(dataPath).append("/").append(to_string(dirNum)).append("/").append(flowFile);
@@ -337,7 +339,7 @@ int main() {
 			return 0;
 		}
 		fclose(f);
-		loadFlow(flowsFilePath.c_str(), flows);
+		loadFlow(flowsFilePath.c_str(), flows, a, b);
 		loadPort(portsFilePath.c_str(), ports);
 
 		flows.sort([](Flow &first, Flow &second) {

@@ -42,7 +42,9 @@ Flow::Flow(int id, int bandwidth, int startTime, int sendTime) {
 	this->sendTime = sendTime;
 	this->beginTime = 0;
 	this->endTime = INT_MAX;
-	this->compose = (double) sendTime + 0.10 * (double) bandwidth;
+	// 1.24 和 1.3 ==> 50.35
+	// 1.24 ~ 1.83
+	this->compose = (double) sendTime + 1.3 * (double) bandwidth;
 }
 
 bool Flow::isNull() const {
@@ -181,7 +183,7 @@ void transfer(list<Flow> &flows, vector<Port> &ports, const string &resultsFile)
 	priority_queue<Flow, vector<Flow>, greater<>> min_heap;
 	list<Flow> dispatch;
 	vector<list<Flow>> portQueues(portNum);
-	int maxDispatchFlow = 20 * portNum;
+	unsigned maxDispatchFlow = 20 * portNum;
 	while (!flows.empty() || !dispatch.empty()) {
 		flow = (!flows.empty() ? flows.front() : temp);
 		flowAtPort = (!min_heap.empty() ? min_heap.top() : temp);
@@ -241,7 +243,7 @@ void transfer(list<Flow> &flows, vector<Port> &ports, const string &resultsFile)
 			} else {
 				dispatch.push_back(flow);
 				dispatch.sort([](Flow &flow1, Flow &flow2) {
-					return flow1.bandwidth < flow2.bandwidth;
+					return flow1.compose < flow2.compose;
 				});
 				if (dispatch.size() > maxDispatchFlow) {
 					// 缓存区已满, 想要把流放入端口排队区, 取流数量最小的排队区
@@ -266,9 +268,9 @@ void transfer(list<Flow> &flows, vector<Port> &ports, const string &resultsFile)
 					// cout << f->id << "," << portPos << "," << time << endl;
 					dispatch.erase(f++);
 				}
+				flowAtDispatch = (!dispatch.empty() ? dispatch.front() : temp);
 				flows.pop_front();
 			}
-			flowAtDispatch = dispatch.front();
 			flow = (!flows.empty() ? flows.front() : temp);
 		}
 		++time;
