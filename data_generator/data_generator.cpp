@@ -27,7 +27,7 @@ void Output(string &path, int &No) {
 	output << "没什么用拿来占位的第一行，这是第" + to_string(No) + "个文件" << endl;
 	/**/
 	for (int i = 0; i < flownum; i++) {
-		int speed = rand() % m + 1;//流带宽1-1000;
+		int speed = rand() % 1000 + 1;//流带宽1-1000;
 		int begintime = rand() % bg;
 		int endtime = rand() % et + 1;
 		output << i << ',' << speed << ',' << begintime << ',' << endtime << endl;

@@ -42,6 +42,7 @@ Flow::Flow(int id, int bandwidth, int startTime, int sendTime) {
 	this->sendTime = sendTime;
 	this->beginTime = 0;
 	this->endTime = INT_MAX;
+	this->speed = (double) bandwidth / (double) sendTime;
 	// 1.24 和 1.3 ==> 50.35
 	// 1.24 ~ 1.83
 	this->compose = (double) sendTime + 1.3 * (double) bandwidth;
@@ -241,10 +242,9 @@ void transfer(list<Flow> &flows, vector<Port> &ports, const string &resultsFile)
 				maxRemainBandwidth = ports[portNum - 1].remainBandwidth;
 				flows.pop_front();
 			} else {
-				dispatch.push_back(flow);
-				dispatch.sort([](Flow &flow1, Flow &flow2) {
-					return flow1.compose < flow2.compose;
-				});
+				dispatch.insert(std::lower_bound(dispatch.begin(), dispatch.end(), flow, [](const Flow& f1, const Flow& f2) {
+				    return f1.compose < f2.compose;
+				}), flow);
 				if (dispatch.size() > maxDispatchFlow) {
 					// 缓存区已满, 想要把流放入端口排队区, 取流数量最小的排队区
 					auto f = min_element(dispatch.begin(), dispatch.end(), [](Flow &flow1, Flow &flow2) {
@@ -288,7 +288,7 @@ int main() {
 		} else {
 			return first.sendTime < second.sendTime;
 		}
-		// return first.compose < second.compose;
+		return first.compose < second.compose;
 	};
 	while (true) {
 		string flowsFilePath;

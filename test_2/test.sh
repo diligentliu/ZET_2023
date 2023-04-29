@@ -2,9 +2,9 @@
 
 # compile C++ executable
 g++ test.cpp -o test
-min=1.24
-max=1.9
-d=0.01
+min=-10
+max=10
+d=0.1
 # set initial min_result to a very large number
 ./test $min
 min_result=$(./determine_2)

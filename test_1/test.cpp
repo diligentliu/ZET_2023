@@ -293,7 +293,7 @@ void solution(list<Flow> &flows, vector<Port> &ports, const string &resultsFile)
 				break;
 			}
 		}
-		while (!flow.isNull() && flow.startTime == time) {
+		while (!flow.isNull() && flow.startTime <= time) {
 			if (flow.bandwidth <= maxRemainBandwidth) {
 				int i = binary_search(ports, flow.bandwidth);
 				flow.setBeginTime(time);
@@ -307,10 +307,11 @@ void solution(list<Flow> &flows, vector<Port> &ports, const string &resultsFile)
 				maxRemainBandwidth = ports[portNum - 1].remainBandwidth;
 				flows.pop_front();
 			} else {
-				dispatch.push_back(flow);
-				dispatch.sort([](Flow &flow1, Flow &flow2) {
-					return flow1.speed < flow2.speed;
-				});
+				auto it = dispatch.begin();
+				while (it != dispatch.end() && it->speed < flow.speed) {
+				    ++it;
+				}
+				dispatch.insert(it, flow);
 				flows.pop_front();
 			}
 			flow = (!flows.empty() ? flows.front() : temp);
