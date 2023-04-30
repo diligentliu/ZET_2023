@@ -247,34 +247,49 @@ int transfer(list<Flow> &flows, vector<Port> &ports, const string &resultsFile) 
 				dispatch.sort([](Flow &flow1, Flow &flow2) {
 					return flow1.compose < flow2.compose;
 				});
+				flowAtDispatch = dispatch.front();
 				if (dispatch.size() > maxDispatchFlow) {
-					// 缓存区已满, 想要把流放入端口排队区, 取流数量最小的排队区
-					auto f = min_element(dispatch.begin(), dispatch.end(), [](Flow &flow1, Flow &flow2) {
-						return flow1.sendTime < flow2.sendTime;
-					});
 					int portPos = 0;
 					for (int j = 0; j < portNum; ++j) {
-						if (portBandwidths[j] >= f->bandwidth) {
-							if (portBandwidths[portPos] < f->bandwidth) {
+						if (portBandwidths[j] >= flowAtDispatch.bandwidth) {
+							if (portBandwidths[portPos] < flowAtDispatch.bandwidth) {
 								portPos = j;
 							} else {
 								portPos = (portQueues[portPos].size() > portQueues[j].size() ? j : portPos);
 							}
 						}
 					}
-					f->portId = portPos;
 					if (portQueues[portPos].size() != 30) {
-						portQueues[portPos].push_back(*f);
+						flowAtDispatch.portId = portPos;
+						portQueues[portPos].push_back(flowAtDispatch);
+						fprintf(fpWrite, "%d,%d,%d\n", flowAtDispatch.id, portPos, time);
+						// cout << flowAtDispatch.id << "," << portPos << "," << time << endl;
+						dispatch.pop_front();
 					} else {
-						ret += (f->sendTime * 2);
+						auto f = min_element(dispatch.begin(), dispatch.end(), [](Flow &flow1, Flow &flow2) {
+							return flow1.sendTime < flow2.sendTime;
+						});
+						portPos = 0;
+						for (int j = 0; j < portNum; ++j) {
+							if (portBandwidths[j] >= f->bandwidth) {
+								if (portBandwidths[portPos] < f->bandwidth) {
+									portPos = j;
+								} else {
+									portPos = (portQueues[portPos].size() > portQueues[j].size() ? j : portPos);
+								}
+							}
+						}
+						f->portId = portPos;
+						if (portQueues[portPos].size() != 30) {
+							portQueues[portPos].push_back(*f);
+						}
+						fprintf(fpWrite, "%d,%d,%d\n", f->id, portPos, time);
+						// cout << f->id << "," << portPos << "," << time << endl;
+						dispatch.erase(f++);
 					}
-					fprintf(fpWrite, "%d,%d,%d\n", f->id, portPos, time);
-					// cout << f->id << "," << portPos << "," << time << endl;
-					dispatch.erase(f++);
 				}
 				flows.pop_front();
 			}
-			flowAtDispatch = dispatch.front();
 			flow = (!flows.empty() ? flows.front() : temp);
 		}
 		++time;

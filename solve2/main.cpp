@@ -43,9 +43,7 @@ Flow::Flow(int id, int bandwidth, int startTime, int sendTime) {
 	this->beginTime = 0;
 	this->endTime = INT_MAX;
 	this->speed = (double) bandwidth / (double) sendTime;
-	// 1.24 和 1.3 ==> 50.35
-	// 1.24 ~ 1.83
-	this->compose = (double) sendTime + 1.3 * (double) bandwidth;
+	this->compose = (double) sendTime + 0.8 * (double) bandwidth;
 }
 
 bool Flow::isNull() const {
@@ -245,30 +243,50 @@ void transfer(list<Flow> &flows, vector<Port> &ports, const string &resultsFile)
 				dispatch.insert(std::lower_bound(dispatch.begin(), dispatch.end(), flow, [](const Flow& f1, const Flow& f2) {
 				    return f1.compose < f2.compose;
 				}), flow);
+				flowAtDispatch = dispatch.front();
 				if (dispatch.size() > maxDispatchFlow) {
 					// 缓存区已满, 想要把流放入端口排队区, 取流数量最小的排队区
-					auto f = min_element(dispatch.begin(), dispatch.end(), [](Flow &flow1, Flow &flow2) {
-						return flow1.sendTime < flow2.sendTime;
-					});
+					// 优化思路: 如果排队区已满则抛弃 sendTime 最小的, 如果未满, 将带宽最小的放入排队区
+					// 优化后 50.35 --> 50.35(a = 0.1) 50.47(a = 0.8)
 					int portPos = 0;
 					for (int j = 0; j < portNum; ++j) {
-						if (portBandwidths[j] >= f->bandwidth) {
-							if (portBandwidths[portPos] < f->bandwidth) {
+						if (portBandwidths[j] >= flowAtDispatch.bandwidth) {
+							if (portBandwidths[portPos] < flowAtDispatch.bandwidth) {
 								portPos = j;
 							} else {
 								portPos = (portQueues[portPos].size() > portQueues[j].size() ? j : portPos);
 							}
 						}
 					}
-					f->portId = portPos;
 					if (portQueues[portPos].size() != 30) {
-						portQueues[portPos].push_back(*f);
+						flowAtDispatch.portId = portPos;
+						portQueues[portPos].push_back(flowAtDispatch);
+						fprintf(fpWrite, "%d,%d,%d\n", flowAtDispatch.id, portPos, time);
+						// cout << flowAtDispatch.id << "," << portPos << "," << time << endl;
+						dispatch.pop_front();
+					} else {
+						auto f = min_element(dispatch.begin(), dispatch.end(), [](Flow &flow1, Flow &flow2) {
+							return flow1.sendTime < flow2.sendTime;
+						});
+						portPos = 0;
+						for (int j = 0; j < portNum; ++j) {
+							if (portBandwidths[j] >= f->bandwidth) {
+								if (portBandwidths[portPos] < f->bandwidth) {
+									portPos = j;
+								} else {
+									portPos = (portQueues[portPos].size() > portQueues[j].size() ? j : portPos);
+								}
+							}
+						}
+						f->portId = portPos;
+						if (portQueues[portPos].size() != 30) {
+							portQueues[portPos].push_back(*f);
+						}
+						fprintf(fpWrite, "%d,%d,%d\n", f->id, portPos, time);
+						// cout << f->id << "," << portPos << "," << time << endl;
+						dispatch.erase(f++);
 					}
-					fprintf(fpWrite, "%d,%d,%d\n", f->id, portPos, time);
-					// cout << f->id << "," << portPos << "," << time << endl;
-					dispatch.erase(f++);
 				}
-				flowAtDispatch = (!dispatch.empty() ? dispatch.front() : temp);
 				flows.pop_front();
 			}
 			flow = (!flows.empty() ? flows.front() : temp);
@@ -288,7 +306,7 @@ int main() {
 		} else {
 			return first.sendTime < second.sendTime;
 		}
-		return first.compose < second.compose;
+		// return first.compose < second.compose;
 	};
 	while (true) {
 		string flowsFilePath;

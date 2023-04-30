@@ -169,88 +169,6 @@ int binary_search(vector<Port> &posts, int bandwidth) {
 
 void transfer(list<Flow> &flows, vector<Port> &ports, const string &resultsFile) {
 	FILE *fpWrite = fopen(resultsFile.c_str(), "w");
-	sort(ports.begin(), ports.end(), less<>());
-	unsigned portNum = ports.size();
-	int num = 0;
-	int time = 0;
-	Flow temp;
-	Flow flowAtQueue, flowAtPort;
-	priority_queue<Flow, vector<Flow>, greater<>> min_heap;
-	while (!flows.empty()) {
-		flowAtQueue = flows.front();
-		if (!min_heap.empty()) {
-			flowAtPort = min_heap.top();
-		}
-		if (!flowAtPort.isNull()) {
-			int portPopTime = flowAtPort.endTime;
-			int queuePopTime = flowAtQueue.startTime;
-			if (queuePopTime <= portPopTime) {
-				int i = 0;
-				for (; i < portNum; ++i) {
-					if (ports[i].remainBandwidth >= flowAtQueue.bandwidth) {
-						break;
-					}
-				}
-				if (i != portNum) {
-					time = max(time, queuePopTime);
-					flowAtQueue.setBeginTime(time);
-					flowAtQueue.setEndTime(time);
-					flowAtQueue.portId = ports[i].id;
-					fprintf(fpWrite, "%d,%d,%d\n", flowAtQueue.id, ports[i].id, flowAtQueue.beginTime);
-					num++;
-					min_heap.push(flowAtQueue);
-					ports[i].modifyRemain(flowAtQueue.bandwidth);
-					sort(ports.begin(), ports.end(), less<>());
-					flows.pop_front();
-				} else {
-					time = portPopTime;
-					int j = 0;
-					for (; j < portNum; ++j) {
-						if (ports[j].id == flowAtPort.portId) {
-							break;
-						}
-					}
-					ports[j].modifyRemain(-flowAtPort.bandwidth);
-					sort(ports.begin(), ports.end(), less<>());
-					min_heap.pop();
-				}
-			} else {
-				time = portPopTime;
-				int j = 0;
-				for (; j < portNum; ++j) {
-					if (ports[j].id == flowAtPort.portId) {
-						break;
-					}
-				}
-				ports[j].modifyRemain(-flowAtPort.bandwidth);
-				sort(ports.begin(), ports.end(), less<>());
-				min_heap.pop();
-			}
-		} else {
-			time = max(time, flowAtQueue.startTime);
-			flowAtQueue.setBeginTime(time);
-			flowAtQueue.setEndTime(time);
-			int i = 0;
-			for (; i < portNum; ++i) {
-				if (ports[i].remainBandwidth >= flowAtQueue.bandwidth) {
-					break;
-				}
-			}
-			flowAtQueue.portId = ports[i].id;
-			fprintf(fpWrite, "%d,%d,%d\n", flowAtQueue.id, ports[i].id, flowAtQueue.beginTime);
-			num++;
-			min_heap.push(flowAtQueue);
-			ports[i].modifyRemain(flowAtQueue.bandwidth);
-			sort(ports.begin(), ports.end(), less<>());
-			flows.pop_front();
-		}
-		flowAtPort = temp;
-	}
-	fclose(fpWrite);
-}
-
-void solution(list<Flow> &flows, vector<Port> &ports, const string &resultsFile) {
-	FILE *fpWrite = fopen(resultsFile.c_str(), "w");
 	unsigned portNum = ports.size();
 	sort(ports.begin(), ports.end(), less<>());
 	int maxRemainBandwidth = ports[portNum - 1].remainBandwidth;
@@ -340,18 +258,10 @@ int main() {
 		loadPort(portsFilePath.c_str(), ports);
 
 		flows.sort([](Flow &first, Flow &second) {
-			// if (first.startTime != second.startTime) {
-			// 	return first.startTime < second.startTime;
-			// } else if (first.bandwidth != second.bandwidth) {
-			// 	return first.bandwidth < second.bandwidth;
-			// } else {
-			// 	return first.sendTime < second.sendTime;
-			// }
 			return first.startTime < second.startTime;
-			// return first.compose < second.compose;
 		});
 
-		solution(flows, ports, resultsFilePath);
+		transfer(flows, ports, resultsFilePath);
 		dirNum++;
 	}
 }
