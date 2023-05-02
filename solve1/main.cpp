@@ -43,7 +43,6 @@ Flow::Flow(int id, int bandwidth, int startTime, int sendTime) {
 	this->beginTime = 0;
 	this->endTime = INT_MAX;
 	this->speed = (double) (bandwidth) / (double) (sendTime);
-	this->compose = (double) startTime - 1.0 * (double) sendTime;
 }
 
 bool Flow::isNull() const {
@@ -167,21 +166,24 @@ int binary_search(vector<Port> &posts, int bandwidth) {
 	return res;
 }
 
-void transfer(list<Flow> &flows, vector<Port> &ports, const string &resultsFile) {
+int transfer(list<Flow> &flows, vector<Port> &ports, const string &resultsFile, double &a, double &b) {
 	FILE *fpWrite = fopen(resultsFile.c_str(), "w");
 	unsigned portNum = ports.size();
 	sort(ports.begin(), ports.end(), less<>());
 	int maxRemainBandwidth = ports[portNum - 1].remainBandwidth;
 	int time = 0;
+	int ret = 0;
 	Flow temp;
 	Flow flow, flowAtPort, flowAtDispatch;
 	priority_queue<Flow, vector<Flow>, greater<>> min_heap;
 	list<Flow> dispatch;
 	while (!flows.empty() || !dispatch.empty()) {
 		flow = (!flows.empty() ? flows.front() : temp);
+		flow.compose = flow.speed + a * (double) flow.sendTime + b * (double) flow.bandwidth;
 		flowAtPort = (!min_heap.empty() ? min_heap.top() : temp);
 		flowAtDispatch = (!dispatch.empty() ? dispatch.front() : temp);
 		while (!flowAtPort.isNull() && flowAtPort.endTime == time) {
+			ret = max(ret, time);
 			for (int i = 0; i < portNum; ++i) {
 				if (ports[i].id == flowAtPort.portId) {
 					ports[i].modifyRemain(-flowAtPort.bandwidth);
@@ -201,6 +203,7 @@ void transfer(list<Flow> &flows, vector<Port> &ports, const string &resultsFile)
 				flowAtDispatch.portId = ports[i].id;
 				fprintf(fpWrite, "%d,%d,%d\n", flowAtDispatch.id, flowAtDispatch.portId, flowAtDispatch.beginTime);
 				// cout << flowAtDispatch.id << "," << flowAtDispatch.portId << "," << flowAtDispatch.beginTime << endl;
+				ret = max(ret, flowAtDispatch.endTime);
 				min_heap.push(flowAtDispatch);
 				ports[i].modifyRemain(flowAtDispatch.bandwidth);
 				sort(ports.begin(), ports.end(), less<>());
@@ -219,6 +222,7 @@ void transfer(list<Flow> &flows, vector<Port> &ports, const string &resultsFile)
 				flow.portId = ports[i].id;
 				fprintf(fpWrite, "%d,%d,%d\n", flow.id, flow.portId, flow.beginTime);
 				// cout << flow.id << "," << flow.portId << "," << flow.beginTime << endl;
+				ret = max(ret, flow.endTime);
 				min_heap.push(flow);
 				ports[i].modifyRemain(flow.bandwidth);
 				sort(ports.begin(), ports.end(), less<>());
@@ -226,13 +230,23 @@ void transfer(list<Flow> &flows, vector<Port> &ports, const string &resultsFile)
 				flows.pop_front();
 			} else {
 				dispatch.insert(std::upper_bound(dispatch.begin(), dispatch.end(), flow, [](const Flow& a, const Flow& b) {
-					return a.speed < b.speed;
+					return a.compose < b.compose;
 				}), flow);
 				flows.pop_front();
 			}
 			flow = (!flows.empty() ? flows.front() : temp);
+			flow.compose = flow.speed + a * (double) flow.sendTime + b * (double) flow.bandwidth;
 		}
 		++time;
+	}
+	fclose(fpWrite);
+	return ret;
+}
+
+void write_file(const char *outFilePath, int result[][3] , const int &num) {
+	FILE *fpWrite = fopen(outFilePath, "w");
+	for (int i = 0; i < num; ++i) {
+		fprintf(fpWrite, "%d,%d,%d\n", result[i][0], result[i][1], result[i][2]);
 	}
 	fclose(fpWrite);
 }
@@ -261,7 +275,9 @@ int main() {
 			return first.startTime < second.startTime;
 		});
 
-		transfer(flows, ports, resultsFilePath);
+		double a = -10, b = -11;
+		transfer(flows, ports, resultsFilePath, a, b);
+
 		dirNum++;
 	}
 }

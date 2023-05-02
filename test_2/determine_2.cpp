@@ -314,7 +314,7 @@ int main() {
 	int maxcachesize = 0;
 	string path;
 	while (true) {
-		path = "../testData/" + to_string(No);
+		path = "../testData_2/" + to_string(No);
 		if (!Input(path, flows, ports, res, maxcachesize))
 			break;
 		stable_sort(res.begin(), res.end(), [](const Result &x, const Result &y) { return x.sendtime < y.sendtime; });
