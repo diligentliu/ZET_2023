@@ -304,8 +304,10 @@ int main(int argc, char const *argv[]) {
 	auto lambda = [&](Flow first, Flow second) {
 		if (first.startTime != second.startTime) {
 			return first.startTime < second.startTime;
+		} else if (first.bandwidth != second.bandwidth){
+			return first.bandwidth < second.bandwidth;
 		} else {
-			return first.sendTime > second.sendTime;
+			return first.sendTime < second.sendTime;
 		}
 		// return first.compose < second.compose;
 	};

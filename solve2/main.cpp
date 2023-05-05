@@ -320,7 +320,7 @@ int transfer(list<Flow> flows, vector<Port> ports, int results[][3], const doubl
 	return time + over;
 }
 
-void write_file(const char *outFilePath, int result[][3] , const int &num) {
+void write_file(const char *outFilePath, int result[][3] , const unsigned long &num) {
 	FILE *fpWrite = fopen(outFilePath, "w");
 	for (int i = 0; i < num; ++i) {
 		fprintf(fpWrite, "%d,%d,%d\n", result[i][0], result[i][1], result[i][2]);
@@ -330,20 +330,13 @@ void write_file(const char *outFilePath, int result[][3] , const int &num) {
 
 int main() {
 	int dirNum = 0;
-	auto lambda1 = [&](Flow first, Flow second) {
+	auto lambda = [&](Flow first, Flow second) {
 		if (first.startTime != second.startTime) {
 			return first.startTime < second.startTime;
 		} else if (first.bandwidth != second.bandwidth) {
 			return first.bandwidth < second.bandwidth;
 		} else {
 			return first.sendTime < second.sendTime;
-		}
-	};
-	auto lambda2 = [&](Flow first, Flow second) {
-		if (first.startTime != second.startTime) {
-			return first.startTime < second.startTime;
-		} else {
-			return first.sendTime > second.sendTime;
 		}
 	};
 	while (true) {
@@ -363,36 +356,26 @@ int main() {
 		loadFlow(flowsFilePath.c_str(), flows);
 		loadPort(portsFilePath.c_str(), ports);
 
-		flows.sort(lambda1);
+		flows.sort(lambda);
 
-		int flowsNum = flows.size();
+		auto flowsNum = flows.size();
+		// 优化思路跑两次，每次用不同的权重，取最好的那一次，(2.3, -7.9) + (0.8, 0.0) --> 50.5
 		double a = 2.3;
 		double b = -7.9;
 		int (*results1)[3] = new int[flowsNum][3];
 		int (*results2)[3] = new int[flowsNum][3];
-		int (*results3)[3] = new int[flowsNum][3];
 		int ret1 = transfer(flows, ports, results1, a, b);
 		a = 0.8, b = 0.0;
 		int ret2 = transfer(flows, ports, results2, a, b);
-		flows.sort(lambda2);
-		a = 3.8, b = -6.0;
-		int ret3 = transfer(flows, ports, results3, a, b);
+
 		if (ret1 <= ret2) {
-			if (ret1 <= ret3) {
-				write_file(resultsFilePath.c_str(), results1, flowsNum);
-			} else {
-				write_file(resultsFilePath.c_str(), results3, flowsNum);
-			}
+			write_file(resultsFilePath.c_str(), results1, flowsNum);
 		} else {
-			if (ret2 <= ret3) {
-				write_file(resultsFilePath.c_str(), results2, flowsNum);
-			} else {
-				write_file(resultsFilePath.c_str(), results3, flowsNum);
-			}
+			write_file(resultsFilePath.c_str(), results2, flowsNum);
 		}
+
 		delete[] results1;
 		delete[] results2;
-		delete[] results3;
 		dirNum++;
 	}
 }
