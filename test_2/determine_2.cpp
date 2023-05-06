@@ -335,7 +335,6 @@ int main() {
 		ports.clear();
 		res.clear();
 		cout << thistime;
-		return thistime;
 	}
 	//cout << "总和理论最优：" << allbest << endl;
 	//cout << "总和实际结果：" << alltime << endl;

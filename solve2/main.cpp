@@ -31,7 +31,6 @@ public:
 	bool operator<(const Flow &other) const;
 	bool operator>(const Flow &other) const;
 	bool operator==(const Flow &other) const;
-	friend ostream &operator<<(ostream &out, Flow &flow);
 };
 
 Flow::Flow(int id, int bandwidth, int startTime, int sendTime) {
@@ -69,11 +68,6 @@ bool Flow::operator==(const Flow &other) const {
 	return this->endTime == other.endTime;
 }
 
-ostream &operator<<(ostream &out, Flow &flow) {
-	out << flow.id << "," << flow.bandwidth << "," << flow.startTime << "," << flow.sendTime << "," << flow.speed;
-	return out;
-}
-
 class Port {
 public:
 	int id;
@@ -85,7 +79,6 @@ public:
 	bool operator<(const Port &other) const;
 	bool operator==(const Port &other) const;
 	bool operator>(const Port &other) const;
-	friend ostream &operator<<(ostream &out, Port &port);
 };
 
 Port::Port(int id, int bandwidth) {
@@ -112,11 +105,6 @@ bool Port::operator>(const Port &other) const {
 
 bool Port::operator==(const Port &other) const {
 	return this->remainBandwidth == other.remainBandwidth;
-}
-
-ostream &operator<<(ostream &out, Port &port) {
-	out << port.id << "," << port.bandwidth;
-	return out;
 }
 
 void loadFlow(const char *filePath, list<Flow> &flows) {
@@ -166,7 +154,7 @@ int binary_search(vector<Port> &posts, int bandwidth) {
 	return res;
 }
 
-int transfer(list<Flow> flows, vector<Port> ports, int results[][3], const double &a, const double &b) {
+int transfer(list<Flow> flows, vector<Port> ports, vector<vector<int>> &results, const double &a, const double &b) {
 	// FILE *fpWrite = fopen(resultsFile.c_str(), "w");
 	unsigned portNum = ports.size();
 	vector<int> portBandwidths(portNum);
@@ -175,7 +163,6 @@ int transfer(list<Flow> flows, vector<Port> ports, int results[][3], const doubl
 	}
 	sort(ports.begin(), ports.end(), less<>());
 	int maxRemainBandwidth = ports[portNum - 1].remainBandwidth;
-	int maxTime = flows.back().startTime;
 	int time = 0;
 	// 抛弃流罚时
 	int over = 0;
@@ -190,7 +177,6 @@ int transfer(list<Flow> flows, vector<Port> ports, int results[][3], const doubl
 		flow = (!flows.empty() ? flows.front() : temp);
 		flow.compose = (double) flow.sendTime + a * (double) flow.bandwidth + b * flow.speed;
 		flowAtPort = (!min_heap.empty() ? min_heap.top() : temp);
-		flowAtDispatch = (!dispatch.empty() ? dispatch.front() : temp);
 		while (!flowAtPort.isNull() && flowAtPort.endTime == time) {
 			for (int i = 0; i < portNum; ++i) {
 				if (ports[i].id == flowAtPort.portId) {
@@ -212,7 +198,73 @@ int transfer(list<Flow> flows, vector<Port> ports, int results[][3], const doubl
 				}
 			}
 		}
-		while (!flowAtDispatch.isNull()) {
+		while (!flow.isNull() && flow.startTime == time) {
+			// 流内的数据不能直接发送到端口，只能通过排队区和缓存区发送到端口
+			// (2.3, 7.9) + (0.8, 0.0) --> 50.52
+			dispatch.insert(
+					std::lower_bound(dispatch.begin(), dispatch.end(), flow, [](const Flow &f1, const Flow &f2) {
+						return f1.compose < f2.compose;
+					}), flow);
+			flowAtDispatch = dispatch.front();
+			if (dispatch.size() > maxDispatchFlow) {
+				// 缓存区已满, 想要把流放入端口排队区, 取流数量最小的排队区
+				// 优化思路: 如果排队区已满则抛弃 sendTime 最小的, 如果未满, 将带宽最小的放入排队区
+				// 优化后 50.35 --> 50.35(a = 0.1) 50.47(a = 0.8)
+				int portPos = 0;
+				for (int j = 0; j < portNum; ++j) {
+					if (portBandwidths[j] >= flowAtDispatch.bandwidth) {
+						if (portBandwidths[portPos] < flowAtDispatch.bandwidth) {
+							portPos = j;
+						} else {
+							portPos = (portQueues[portPos].size() > portQueues[j].size() ? j : portPos);
+						}
+					}
+				}
+				if (portQueues[portPos].size() != 30) {
+					flowAtDispatch.portId = portPos;
+					portQueues[portPos].push_back(flowAtDispatch);
+					// fprintf(fpWrite, "%d,%d,%d\n", flowAtDispatch.id, portPos, time);
+					// cout << flowAtDispatch.id << "," << portPos << "," << time << endl;
+					results[resultPos][0] = flowAtDispatch.id;
+					results[resultPos][1] = flowAtDispatch.portId;
+					results[resultPos][2] = time;
+					++resultPos;
+					dispatch.pop_front();
+				} else {
+					auto f = min_element(dispatch.begin(), dispatch.end(), [](Flow &flow1, Flow &flow2) {
+						return flow1.sendTime < flow2.sendTime;
+					});
+					portPos = 0;
+					for (int j = 0; j < portNum; ++j) {
+						if (portBandwidths[j] >= f->bandwidth) {
+							if (portBandwidths[portPos] < f->bandwidth) {
+								portPos = j;
+							} else {
+								portPos = (portQueues[portPos].size() > portQueues[j].size() ? j : portPos);
+							}
+						}
+					}
+					f->portId = portPos;
+					if (portQueues[portPos].size() != 30) {
+						portQueues[portPos].push_back(*f);
+					} else {
+						over += (2 * f->sendTime);
+					}
+					// fprintf(fpWrite, "%d,%d,%d\n", f->id, portPos, time);
+					// cout << f->id << "," << portPos << "," << f->sendTime << endl;
+					results[resultPos][0] = f->id;
+					results[resultPos][1] = portPos;
+					results[resultPos][2] = time;
+					++resultPos;
+					dispatch.erase(f++);
+				}
+			}
+			flows.pop_front();
+			flow = (!flows.empty() ? flows.front() : temp);
+			flow.compose = (double) flow.sendTime + a * (double) flow.bandwidth + b * flow.speed;
+		}
+		while (!dispatch.empty()) {
+			flowAtDispatch = dispatch.front();
 			if (flowAtDispatch.bandwidth <= maxRemainBandwidth) {
 				int i = binary_search(ports, flowAtDispatch.bandwidth);
 				flowAtDispatch.setBeginTime(time);
@@ -229,90 +281,9 @@ int transfer(list<Flow> flows, vector<Port> ports, int results[][3], const doubl
 				sort(ports.begin(), ports.end(), less<>());
 				maxRemainBandwidth = ports[portNum - 1].remainBandwidth;
 				dispatch.pop_front();
-				flowAtDispatch = (!dispatch.empty() ? dispatch.front() : temp);
 			} else {
 				break;
 			}
-		}
-		while (!flow.isNull() && flow.startTime == time) {
-			if (flow.bandwidth <= maxRemainBandwidth) {
-				int i = binary_search(ports, flow.bandwidth);
-				flow.setBeginTime(time);
-				flow.setEndTime(time);
-				flow.portId = ports[i].id;
-				// fprintf(fpWrite, "%d,%d,%d\n", flow.id, flow.portId, flow.beginTime);
-				// cout << flow.id << "," << flow.portId << "," << flow.beginTime << endl;
-				results[resultPos][0] = flow.id;
-				results[resultPos][1] = flow.portId;
-				results[resultPos][2] = flow.beginTime;
-				++resultPos;
-				min_heap.push(flow);
-				ports[i].modifyRemain(flow.bandwidth);
-				sort(ports.begin(), ports.end(), less<>());
-				maxRemainBandwidth = ports[portNum - 1].remainBandwidth;
-				flows.pop_front();
-			} else {
-				dispatch.insert(std::lower_bound(dispatch.begin(), dispatch.end(), flow, [](const Flow& f1, const Flow& f2) {
-				    return f1.compose < f2.compose;
-				}), flow);
-				flowAtDispatch = dispatch.front();
-				if (dispatch.size() > maxDispatchFlow) {
-					// 缓存区已满, 想要把流放入端口排队区, 取流数量最小的排队区
-					// 优化思路: 如果排队区已满则抛弃 sendTime 最小的, 如果未满, 将带宽最小的放入排队区
-					// 优化后 50.35 --> 50.35(a = 0.1) 50.47(a = 0.8)
-					int portPos = 0;
-					for (int j = 0; j < portNum; ++j) {
-						if (portBandwidths[j] >= flowAtDispatch.bandwidth) {
-							if (portBandwidths[portPos] < flowAtDispatch.bandwidth) {
-								portPos = j;
-							} else {
-								portPos = (portQueues[portPos].size() > portQueues[j].size() ? j : portPos);
-							}
-						}
-					}
-					if (portQueues[portPos].size() != 30) {
-						flowAtDispatch.portId = portPos;
-						portQueues[portPos].push_back(flowAtDispatch);
-						// fprintf(fpWrite, "%d,%d,%d\n", flowAtDispatch.id, portPos, time);
-						// cout << flowAtDispatch.id << "," << portPos << "," << time << endl;
-						results[resultPos][0] = flowAtDispatch.id;
-						results[resultPos][1] = flowAtDispatch.portId;
-						results[resultPos][2] = time;
-						++resultPos;
-						dispatch.pop_front();
-					} else {
-						auto f = min_element(dispatch.begin(), dispatch.end(), [](Flow &flow1, Flow &flow2) {
-							return flow1.sendTime < flow2.sendTime;
-						});
-						portPos = 0;
-						for (int j = 0; j < portNum; ++j) {
-							if (portBandwidths[j] >= f->bandwidth) {
-								if (portBandwidths[portPos] < f->bandwidth) {
-									portPos = j;
-								} else {
-									portPos = (portQueues[portPos].size() > portQueues[j].size() ? j : portPos);
-								}
-							}
-						}
-						f->portId = portPos;
-						if (portQueues[portPos].size() != 30) {
-							portQueues[portPos].push_back(*f);
-						} else {
-							over += (2 * f->sendTime);
-						}
-						// fprintf(fpWrite, "%d,%d,%d\n", f->id, portPos, time);
-						// cout << f->id << "," << portPos << "," << f->sendTime << endl;
-						results[resultPos][0] = f->id;
-						results[resultPos][1] = portPos;
-						results[resultPos][2] = time;
-						++resultPos;
-						dispatch.erase(f++);
-					}
-				}
-				flows.pop_front();
-			}
-			flow = (!flows.empty() ? flows.front() : temp);
-			flow.compose = (double) flow.sendTime + a * (double) flow.bandwidth + b * flow.speed;
 		}
 		++time;
 	}
@@ -320,17 +291,17 @@ int transfer(list<Flow> flows, vector<Port> ports, int results[][3], const doubl
 	return time + over;
 }
 
-void write_file(const char *outFilePath, int result[][3] , const unsigned long &num) {
+void write_file(const char *outFilePath, vector<vector<int>> &results, const unsigned long &num) {
 	FILE *fpWrite = fopen(outFilePath, "w");
 	for (int i = 0; i < num; ++i) {
-		fprintf(fpWrite, "%d,%d,%d\n", result[i][0], result[i][1], result[i][2]);
+		fprintf(fpWrite, "%d,%d,%d\n", results[i][0], results[i][1], results[i][2]);
 	}
 	fclose(fpWrite);
 }
 
 int main() {
 	int dirNum = 0;
-	auto lambda = [&](Flow first, Flow second) {
+	auto lambda = [](Flow &first, Flow &second) {
 		if (first.startTime != second.startTime) {
 			return first.startTime < second.startTime;
 		} else if (first.bandwidth != second.bandwidth) {
@@ -359,23 +330,26 @@ int main() {
 		flows.sort(lambda);
 
 		auto flowsNum = flows.size();
-		// 优化思路跑两次，每次用不同的权重，取最好的那一次，(2.3, -7.9) + (0.8, 0.0) --> 50.5
+		// 优化思路跑两次，每次用不同的权重，取最好的那一次，(2.3, -7.9) + (0.8, 0.0) --> 50.52
+		vector<vector<int>> temp(flowsNum, vector<int>(3));
+		vector<vector<int>> results;
+		int ret = INT_MAX;
+		int tempRet;
 		double a = 2.3;
 		double b = -7.9;
-		int (*results1)[3] = new int[flowsNum][3];
-		int (*results2)[3] = new int[flowsNum][3];
-		int ret1 = transfer(flows, ports, results1, a, b);
-		a = 0.8, b = 0.0;
-		int ret2 = transfer(flows, ports, results2, a, b);
-
-		if (ret1 <= ret2) {
-			write_file(resultsFilePath.c_str(), results1, flowsNum);
-		} else {
-			write_file(resultsFilePath.c_str(), results2, flowsNum);
+		tempRet = transfer(flows, ports, temp, a, b);
+		if (tempRet < ret) {
+			ret = tempRet;
+			results = temp;
 		}
+		a = 0.8, b = 0.0;
+		tempRet = transfer(flows, ports, temp, a, b);
+		if (tempRet < ret) {
+			ret = tempRet;
+			results = temp;
+		}
+		write_file(resultsFilePath.c_str(), results, flowsNum);
 
-		delete[] results1;
-		delete[] results2;
 		dirNum++;
 	}
 }
