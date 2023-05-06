@@ -38,7 +38,7 @@ void Output(string &path, int &No) {
 int main() {
 	int No = 0;
 	string path;
-	int seed = std::chrono::system_clock::now().time_since_epoch().count();;
+	int seed = std::chrono::system_clock::now().time_since_epoch().count();
 	srand(seed);
 	for (No = 0; No < 10; No++) {
 		path = "../data/" + to_string(No);
@@ -46,7 +46,7 @@ int main() {
 		mkdir(path.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 		portnum = rand() % 10 + 5;//端口数量5-14
 		flownum = rand() % 10 + 5;
-		flownum *= 1000;//流数量5000-14000
+		flownum *= 5000;//流数量5000-14000
 		bg = rand() % 50 + 50;//流最大开始时间50-99
 		et = rand() % 50 + 50;//流最大需要时间50-99
 		Output(path, No);
