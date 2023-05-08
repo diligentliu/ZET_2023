@@ -77,7 +77,7 @@ ostream &operator<<(ostream &out, Flow &flow) {
 class CompareAsCompose {
 public:
 	bool operator()(Flow &flow1, Flow &flow2) {
-		return flow1.compose > flow2.compose;
+		return flow1.compose < flow2.compose;
 	}
 };
 
@@ -186,7 +186,7 @@ int transfer(list<Flow> flows, vector<Port> ports, const string &resultsFile, do
 	priority_queue<Flow, vector<Flow>, CompareAsCompose> dispatch;
 	while (!flows.empty() || !dispatch.empty()) {
 		flow = (!flows.empty() ? flows.front() : temp);
-		flow.compose = flow.speed + a * double(flow.sendTime) + b * double(flow.bandwidth);
+		flow.compose = double(flow.sendTime) + a * double (flow.bandwidth) + b * flow.speed;
 		flowAtPort = (!min_heap.empty() ? min_heap.top() : temp);
 		while (!flowAtPort.isNull() && flowAtPort.endTime == time) {
 			for (auto &port: ports) {
@@ -204,7 +204,7 @@ int transfer(list<Flow> flows, vector<Port> ports, const string &resultsFile, do
 			dispatch.push(flow);
 			flows.pop_front();
 			flow = (!flows.empty() ? flows.front() : temp);
-			flow.compose = flow.speed + a * double(flow.sendTime) + b * double(flow.bandwidth);
+			flow.compose = double(flow.sendTime) + a * double(flow.bandwidth) + b * flow.speed;
 		}
 		while (!dispatch.empty()) {
 			flowAtDispatch = dispatch.top();
@@ -249,6 +249,7 @@ int main() {
 			return first.sendTime < second.sendTime;
 		}
 	};
+	vector<vector<double>> per(0, vector<double>(3));
 	while (true) {
 		string flowsFilePath;
 		flowsFilePath.append(dataPath).append("/").append(to_string(dirNum)).append("/").append(flowFile);
@@ -261,7 +262,7 @@ int main() {
 
 		FILE *f = fopen(portsFilePath.c_str(), "r");
 		if (f == nullptr) {
-			return 0;
+			break;
 		}
 		fclose(f);
 		loadFlow(flowsFilePath.c_str(), flows);
@@ -275,9 +276,9 @@ int main() {
 		double pa;
 		double pb;
 		vector<vector<double>> results(0, vector<double>(3));
-		for (int i = -100; i <= 0; ++i) {
-			for (int j = -20; j < 20; ++j) {
-				double a = double (i) / 10;
+		for (int i = -200; i <= 200; ++i) {
+			double a = double (i) / 10;
+			for (int j = -200; j <= 200; ++j) {
 				double b = double (j) / 10;
 				int ret1 = transfer(flows, ports, resultsFilePath, a, b);
 
@@ -296,11 +297,15 @@ int main() {
 			}
 		}
 		cout << pa << "," << pb << "," << ret << endl;
+		per.push_back({pa, pb, double(ret)});
 		cout << endl;
 		for (auto result : results) {
 			cout << result[0] << "," << result[1] << "," << result[2] << endl;
 		}
 		fclose(fpWrite);
 		dirNum++;
+	}
+	for (auto p : per) {
+		cout << p[0] << "," << p[1] << "," << p[2] << endl;
 	}
 }

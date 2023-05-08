@@ -3,10 +3,10 @@
 g++ test.cpp -o test
 g++ determine_2.cpp -o determine_2
 
-min_a=0
+min_a=-10
 max_a=10
 min_b=-10
-max_b=0
+max_b=10
 d=0.1
 best_a=$min_a
 best_b=$min_b

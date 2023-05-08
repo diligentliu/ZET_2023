@@ -14,6 +14,9 @@ string resultFile = "result.txt";
 
 class Flow {
 public:
+	// startTime : 进入设备时间
+	// sendTime : 发送所需时间
+	// beginTime : 端口发送开始时间
 	int id;
 	int portId;
 	int bandwidth;
@@ -107,6 +110,7 @@ bool Port::operator==(const Port &other) const {
 	return this->remainBandwidth == other.remainBandwidth;
 }
 
+// 读取流文件
 void loadFlow(const char *filePath, list<Flow> &flows) {
 	FILE *fpRead = fopen(filePath, "r");
 	if (fpRead == nullptr) {
@@ -123,6 +127,7 @@ void loadFlow(const char *filePath, list<Flow> &flows) {
 	}
 }
 
+// 读取端口文件
 void loadPort(const char *filePath, vector<Port> &posts) {
 	FILE *fpRead = fopen(filePath, "r");
 	if (fpRead == nullptr) {
@@ -161,7 +166,9 @@ int transfer(list<Flow> flows, vector<Port> ports, vector<vector<int>> &results,
 	for (int i = 0; i < portNum; ++i) {
 		portBandwidths[i] = ports[i].bandwidth;
 	}
+	// 端口按照剩余带宽升序排列
 	sort(ports.begin(), ports.end(), less<>());
+	// 记录最大剩余带宽
 	int maxRemainBandwidth = ports[portNum - 1].remainBandwidth;
 	int time = 0;
 	// 抛弃流罚时
@@ -169,15 +176,20 @@ int transfer(list<Flow> flows, vector<Port> ports, vector<vector<int>> &results,
 	int resultPos = 0;
 	Flow temp;
 	Flow flow, flowAtPort, flowAtDispatch;
+	// 所以端口共用的堆，记录端口正在发送的流
 	priority_queue<Flow, vector<Flow>, greater<>> min_heap;
+	// 缓存区
 	list<Flow> dispatch;
+	// 端口排队去
 	vector<list<Flow>> portQueues(portNum);
+	// 缓存区数量限制
 	unsigned maxDispatchFlow = 20 * portNum;
 	while (!flows.empty() || !dispatch.empty() || !min_heap.empty()) {
 		flow = (!flows.empty() ? flows.front() : temp);
 		flow.compose = (double) flow.sendTime + a * (double) flow.bandwidth + b * flow.speed;
 		flowAtPort = (!min_heap.empty() ? min_heap.top() : temp);
 		while (!flowAtPort.isNull() && flowAtPort.endTime == time) {
+			// 弹出已经发送完毕的流，修改端口剩余带宽，检查排队区是否有流要发送
 			for (int i = 0; i < portNum; ++i) {
 				if (ports[i].id == flowAtPort.portId) {
 					ports[i].modifyRemain(-flowAtPort.bandwidth);
@@ -231,6 +243,7 @@ int transfer(list<Flow> flows, vector<Port> ports, vector<vector<int>> &results,
 					++resultPos;
 					dispatch.pop_front();
 				} else {
+					// 缓存区和排队区都超限，选取发送时间最小的抛弃
 					auto f = min_element(dispatch.begin(), dispatch.end(), [](Flow &flow1, Flow &flow2) {
 						return flow1.sendTime < flow2.sendTime;
 					});
@@ -264,6 +277,7 @@ int transfer(list<Flow> flows, vector<Port> ports, vector<vector<int>> &results,
 			flow.compose = (double) flow.sendTime + a * (double) flow.bandwidth + b * flow.speed;
 		}
 		while (!dispatch.empty()) {
+			// 检查端口是否有空闲带宽，并发送
 			flowAtDispatch = dispatch.front();
 			if (flowAtDispatch.bandwidth <= maxRemainBandwidth) {
 				int i = binary_search(ports, flowAtDispatch.bandwidth);
@@ -291,6 +305,7 @@ int transfer(list<Flow> flows, vector<Port> ports, vector<vector<int>> &results,
 	return time + over;
 }
 
+// 写入文件
 void write_file(const char *outFilePath, vector<vector<int>> &results, const unsigned long &num) {
 	FILE *fpWrite = fopen(outFilePath, "w");
 	for (int i = 0; i < num; ++i) {

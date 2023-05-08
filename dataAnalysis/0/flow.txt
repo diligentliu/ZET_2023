@@ -1,4 +1,4 @@
-流id,流带宽，起始时间，发送时间
+id,bandwidth,startTime,sendTime
 0,736,30,5
 1,805,27,47
 2,314,47,47
